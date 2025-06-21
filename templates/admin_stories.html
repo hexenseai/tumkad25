@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}Oluşturulan Hikayeler - TUMKAD Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-book"></i> Oluşturulan Hikayeler</h2>
+                <div>
+                    <a href="{{ url_for('generate_story') }}" class="btn btn-primary me-2">
+                        <i class="fas fa-plus"></i> Yeni Hikaye Oluştur
+                    </a>
+                    <a href="{{ url_for('admin') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Geri Dön
+                    </a>
+                </div>
+            </div>
+            
+            {% if processes %}
+            <div class="row">
+                {% for process in processes %}
+                <div class="col-lg-6 mb-4">
+                    <div class="card border-0 shadow h-100">
+                        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-users"></i> 
+                                Hikaye #{{ process.id }} - {{ process.created_at.strftime('%d.%m.%Y %H:%M') }}
+                            </h5>
+                            <button type="button" class="btn btn-danger btn-sm delete-story-btn" 
+                                    data-process-id="{{ process.id }}"
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#deleteModal-{{ process.id }}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <h6>Katılımcılar:</h6>
+                            <ul class="list-unstyled mb-3">
+                                {% for participant in process.participants %}
+                                <li><i class="fas fa-user"></i> {{ participant.name }} ({{ participant.profession }})</li>
+                                {% endfor %}
+                            </ul>
+                            
+                            <button class="btn btn-outline-primary mb-3 w-100" type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#storyDetails-{{ process.id }}" 
+                                    aria-expanded="false">
+                                <i class="fas fa-chevron-down me-1"></i> Detayları Göster/Gizle
+                            </button>
+
+                            <div class="collapse" id="storyDetails-{{ process.id }}">
+                                <div class="card card-body bg-light mb-3">
+                                    <h6>Hikaye:</h6>
+                                    <p class="text-muted">{{ process.story_text }}</p>
+                                    
+                                    <h6>Görsel Prompt:</h6>
+                                    <p class="text-muted small">{{ process.image_prompt }}</p>
+                                    
+                                    <h6>Hikaye Analizi:</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6 class="text-primary">Katılımcı Detayları:</h6>
+                                            {% for participant in process.participants %}
+                                            <div class="mb-2 p-2 border rounded">
+                                                <strong>{{ participant.name }}</strong><br>
+                                                <small class="text-muted">
+                                                    <i class="fas fa-briefcase"></i> {{ participant.profession }}<br>
+                                                    <i class="fas fa-industry"></i> {{ participant.sector }}<br>
+                                                    <i class="fas fa-lightbulb"></i> {{ participant.technical_interest[:50] }}...<br>
+                                                    <i class="fas fa-target"></i> <strong>2040 Vizyonu:</strong> {{ participant.future_impact[:80] }}...
+                                                </small>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="text-success">Hikaye Özellikleri:</h6>
+                                            <ul class="list-unstyled">
+                                                <li><i class="fas fa-calendar"></i> <strong>Zaman:</strong> 2040</li>
+                                                <li><i class="fas fa-users"></i> <strong>Katılımcı Sayısı:</strong> {{ process.participants|length }}</li>
+                                                <li><i class="fas fa-share-alt"></i> <strong>Paylaşım Token:</strong> {{ process.share_token[:8] }}...</li>
+                                                <li><i class="fas fa-clock"></i> <strong>Oluşturulma:</strong> {{ process.created_at.strftime('%d.%m.%Y %H:%M') }}</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {% if process.generated_image_url %}
+                            <div class="mt-3">
+                                <h6>Oluşturulan Görsel:</h6>
+                                <img src="{{ process.generated_image_url }}" alt="Oluşturulan Görsel" class="img-fluid rounded">
+                                <div class="mt-2">
+                                    <a href="{{ url_for('share_story', token=process.share_token) }}" 
+                                       class="btn btn-primary btn-sm" target="_blank">
+                                        <i class="fas fa-share"></i> Paylaşım Sayfası
+                                    </a>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="mt-3">
+                                <button type="button" class="btn btn-success generate-image-btn" data-process-id="{{ process.id }}">
+                                    <i class="fas fa-image"></i> Görsel Üret (Character Reference)
+                                </button>
+                                <div id="status-{{ process.id }}" class="mt-2" style="display: none;">
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-spinner fa-spin"></i> Görsel üretiliyor...
+                                    </div>
+                                </div>
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle"></i> Katılımcıların fotoğrafları Character Reference olarak kullanılacak
+                                </small>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Silme Onay Modalı -->
+                <div class="modal fade" id="deleteModal-{{ process.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Hikaye Silme Onayı</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p>Bu hikayeyi ve ilişkili görseli silmek istediğinizden emin misiniz?</p>
+                                <p class="text-danger"><strong>Bu işlem geri alınamaz!</strong></p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                                <button type="button" class="btn btn-danger confirm-delete-btn" 
+                                        data-process-id="{{ process.id }}"
+                                        data-bs-dismiss="modal">
+                                    <i class="fas fa-trash"></i> Evet, Sil
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> Henüz hiç hikaye oluşturulmamış.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Detayları Göster/Gizle butonları için ikon değişimi
+    document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(button => {
+        button.addEventListener('click', function() {
+            const icon = this.querySelector('i');
+            if (this.getAttribute('aria-expanded') === 'true') {
+                icon.classList.remove('fa-chevron-up');
+                icon.classList.add('fa-chevron-down');
+            } else {
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-up');
+            }
+        });
+    });
+
+    // Görsel üretme butonları için event listener
+    document.querySelectorAll('.generate-image-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const processId = this.getAttribute('data-process-id');
+            const statusDiv = document.getElementById(`status-${processId}`);
+            
+            // Butonu devre dışı bırak
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Üretiliyor...';
+            statusDiv.style.display = 'block';
+            
+            // AJAX isteği gönder
+            fetch(`/generate_image/${processId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Başarılı - hangi yöntemin kullanıldığını göster
+                    const method = data.method || 'Bilinmeyen';
+                    alert(`Görsel başarıyla üretildi! (${method})`);
+                    // Sayfayı yenile
+                    location.reload();
+                } else {
+                    // Hata
+                    alert('Görsel üretilirken hata oluştu: ' + data.error);
+                    // Butonu geri aktif et
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-image"></i> Görsel Üret (Character Reference)';
+                    statusDiv.style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Görsel üretilirken bir hata oluştu.');
+                // Butonu geri aktif et
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-image"></i> Görsel Üret (Character Reference)';
+                statusDiv.style.display = 'none';
+            });
+        });
+    });
+
+    // Hikaye silme işlemi için event listener
+    document.querySelectorAll('.confirm-delete-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const processId = this.getAttribute('data-process-id');
+            const card = document.querySelector(`.card[data-process-id="${processId}"]`);
+            
+            // Silme butonu loading durumuna geç
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Siliniyor...';
+            
+            // AJAX isteği gönder
+            fetch(`/delete_story/${processId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Başarılı - sayfayı yenile
+                    location.reload();
+                } else {
+                    // Hata
+                    alert('Hikaye silinirken hata oluştu: ' + data.error);
+                    // Butonu geri aktif et
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-trash"></i> Evet, Sil';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Hikaye silinirken bir hata oluştu.');
+                // Butonu geri aktif et
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-trash"></i> Evet, Sil';
+            });
+        });
+    });
+});
+</script>
+{% endblock %} 

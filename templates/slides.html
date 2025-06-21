@@ -1,0 +1,479 @@
+{% extends "base.html" %}
+
+{% block title %}Slayt Gösterisi - TUMKAD{% endblock %}
+
+{% block extra_css %}
+<style>
+.slide-container {
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
+}
+
+.slide {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.slide-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    width: 100%;
+    max-width: 1920px;
+    aspect-ratio: 16/9;
+    margin: auto;
+}
+
+.slide-item {
+    position: relative;
+    overflow: hidden;
+    background: #f8f9fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    opacity: 0;
+    transform: translateY(30px);
+    animation: slideIn 1s ease-out forwards;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+.slide-item:nth-child(1) { animation-delay: 0.1s; }
+.slide-item:nth-child(2) { animation-delay: 0.2s; }
+.slide-item:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes slideIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.slide-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+}
+
+.slide-item-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.95));
+    color: white;
+    padding: 20px 15px;
+    text-align: center;
+    font-size: 14px;
+    backdrop-filter: blur(5px);
+}
+
+.participant-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.participant-list li {
+    margin-bottom: 8px;
+}
+
+.participant-list li:last-child {
+    margin-bottom: 0;
+}
+
+.participant-name {
+    font-size: 16px;
+    font-weight: 600;
+    display: block;
+    line-height: 1.2;
+}
+
+.participant-sector {
+    font-size: 13px;
+    opacity: 0.9;
+    display: block;
+    line-height: 1.2;
+}
+
+.slide-controls {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    background: rgba(0,0,0,0.75);
+    padding: 8px 16px;
+    border-radius: 20px;
+    display: flex;
+    gap: 12px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+.slide-controls button {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 8px;
+    transition: all 0.2s;
+    opacity: 0.8;
+}
+
+.slide-controls button:hover {
+    background: rgba(255,255,255,0.1);
+    transform: scale(1.1);
+    opacity: 1;
+}
+
+.slide-controls button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.slide-counter {
+    color: white;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    margin: 0 8px;
+    font-weight: 500;
+    opacity: 0.8;
+}
+
+.fullscreen-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    background: rgba(0,0,0,0.75);
+    border: none;
+    color: white;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    backdrop-filter: blur(10px);
+    font-size: 16px;
+    opacity: 0.8;
+}
+
+.fullscreen-btn:hover {
+    background: rgba(255,255,255,0.1);
+    transform: scale(1.1);
+    opacity: 1;
+}
+
+/* Remove hover transform from slide items since we always show overlay */
+.slide-item:hover img {
+    transform: none;
+}
+
+/* Remove transform from overlay since we always show it */
+.slide-item-overlay {
+    transform: none;
+}
+
+.slide-item:hover .slide-item-overlay {
+    transform: none;
+}
+
+.empty-slot {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+    font-size: 32px;
+    border: 3px dashed #dee2e6;
+    width: 100%;
+    height: 100%;
+}
+
+.empty-slot i {
+    opacity: 0.5;
+}
+
+/* 16:9 aspect ratio adjustments */
+@media (max-aspect-ratio: 16/9) {
+    .slide-grid {
+        width: auto;
+        height: 90vh;
+        aspect-ratio: 16/9;
+    }
+}
+
+@media (min-aspect-ratio: 16/9) {
+    .slide-grid {
+        width: 90vw;
+        height: auto;
+        aspect-ratio: 16/9;
+    }
+}
+
+@media (max-width: 768px) {
+    .slide-grid {
+        gap: 10px;
+        padding: 20px;
+    }
+    
+    .slide-item-overlay {
+        font-size: 14px;
+        padding: 20px 15px 15px;
+    }
+    
+    .slide-controls {
+        padding: 15px 25px;
+        gap: 15px;
+        bottom: 20px;
+    }
+    
+    .slide-controls button {
+        font-size: 20px;
+        padding: 10px 14px;
+    }
+    
+    .fullscreen-btn {
+        top: 20px;
+        right: 20px;
+        padding: 12px;
+        font-size: 18px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="slide-container">
+    <button class="fullscreen-btn" onclick="toggleFullscreen()">
+        <i class="fas fa-expand"></i>
+    </button>
+    
+    <div class="slide" id="currentSlide">
+        {% if slide_groups %}
+            <div class="slide-grid">
+                {% for story in slide_groups[0] %}
+                <div class="slide-item">
+                    {% if story.generated_image_path %}
+                    <img src="{{ story.generated_image_path }}" 
+                         alt="Generated Story Image">
+                    {% else %}
+                    <div class="empty-slot">
+                        <i class="fas fa-image"></i>
+                    </div>
+                    {% endif %}
+                    <div class="slide-item-overlay">
+                        <ul class="participant-list">
+                            {% for participant in story.participants %}
+                            <li>
+                                <span class="participant-name">{{ participant.name }}</span>
+                                <span class="participant-sector">{{ participant.sector }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="d-flex align-items-center justify-content-center h-100">
+                <div class="text-center text-white">
+                    <i class="fas fa-images fa-4x mb-3"></i>
+                    <h4>Henüz görsel oluşturulmamış</h4>
+                    <p>AI görselleri oluşturmak için yönetim paneline gidin.</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+    
+    <div class="slide-controls">
+        <button onclick="previousSlide()" id="prevBtn">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+        <div class="slide-counter">
+            <span id="currentSlideNum">1</span> / <span id="totalSlides">{{ slide_groups|length }}</span>
+        </div>
+        <button onclick="nextSlide()" id="nextBtn">
+            <i class="fas fa-chevron-right"></i>
+        </button>
+        <button onclick="toggleAutoPlay()" id="autoPlayBtn">
+            <i class="fas fa-play" id="autoPlayIcon"></i>
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentSlideIndex = 0;
+let autoPlayInterval = null;
+let isAutoPlaying = false;
+
+const slideGroups = {{ slide_groups|tojson }};
+
+function showSlide(index) {
+    if (index < 0 || index >= slideGroups.length) return;
+    
+    currentSlideIndex = index;
+    const slideContainer = document.getElementById('currentSlide');
+    
+    if (slideGroups[index]) {
+        let slideHTML = '<div class="slide-grid">';
+        
+        // Her slaytta 3 görsel göster
+        for (let i = 0; i < 3; i++) {
+            const story = slideGroups[index][i];
+            
+            if (story) {
+                slideHTML += `
+                    <div class="slide-item">
+                        ${story.generated_image_path ? 
+                            `<img src="${story.generated_image_path}" alt="Generated Story Image">` :
+                            `<div class="empty-slot">
+                                <i class="fas fa-image"></i>
+                             </div>`
+                        }
+                        <div class="slide-item-overlay">
+                            <ul class="participant-list">
+                                ${story.participants.map(participant => `
+                                    <li>
+                                        <span class="participant-name">${participant.name}</span>
+                                        <span class="participant-sector">${participant.sector}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Boş slot
+                slideHTML += `
+                    <div class="slide-item">
+                        <div class="empty-slot">
+                            <i class="fas fa-image"></i>
+                        </div>
+                        <div class="slide-item-overlay">
+                            <strong>Boş</strong><br>
+                            Görsel yok
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        slideHTML += '</div>';
+        slideContainer.innerHTML = slideHTML;
+    }
+    
+    document.getElementById('currentSlideNum').textContent = index + 1;
+    updateNavigationButtons();
+}
+
+function nextSlide() {
+    if (currentSlideIndex < slideGroups.length - 1) {
+        showSlide(currentSlideIndex + 1);
+    } else {
+        // Son slayttan sonra başa dön
+        showSlide(0);
+    }
+}
+
+function previousSlide() {
+    if (currentSlideIndex > 0) {
+        showSlide(currentSlideIndex - 1);
+    } else {
+        // İlk slayttan önce sona git
+        showSlide(slideGroups.length - 1);
+    }
+}
+
+function updateNavigationButtons() {
+    document.getElementById('prevBtn').disabled = slideGroups.length <= 1;
+    document.getElementById('nextBtn').disabled = slideGroups.length <= 1;
+}
+
+function toggleAutoPlay() {
+    if (isAutoPlaying) {
+        stopAutoPlay();
+    } else {
+        startAutoPlay();
+    }
+}
+
+function startAutoPlay() {
+    isAutoPlaying = true;
+    document.getElementById('autoPlayIcon').className = 'fas fa-pause';
+    autoPlayInterval = setInterval(() => {
+        nextSlide();
+    }, 5000); // 5 saniye bekle
+}
+
+function stopAutoPlay() {
+    isAutoPlaying = false;
+    document.getElementById('autoPlayIcon').className = 'fas fa-play';
+    if (autoPlayInterval) {
+        clearInterval(autoPlayInterval);
+        autoPlayInterval = null;
+    }
+}
+
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+    } else {
+        document.exitFullscreen();
+    }
+}
+
+// Klavye navigasyonu
+document.addEventListener('keydown', function(e) {
+    switch(e.key) {
+        case 'ArrowLeft':
+            previousSlide();
+            break;
+        case 'ArrowRight':
+            nextSlide();
+            break;
+        case ' ':
+            e.preventDefault();
+            toggleAutoPlay();
+            break;
+        case 'f':
+        case 'F':
+            toggleFullscreen();
+            break;
+    }
+});
+
+// Başlat
+document.addEventListener('DOMContentLoaded', function() {
+    updateNavigationButtons();
+    
+    // Slaytlar varsa otomatik başlat
+    if (slideGroups.length > 0) {
+        setTimeout(() => {
+            startAutoPlay();
+        }, 1000);
+    }
+});
+</script>
+{% endblock %} 

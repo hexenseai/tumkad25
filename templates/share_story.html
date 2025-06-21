@@ -1,0 +1,473 @@
+{% extends "base.html" %}
+
+{% block title %}TUMKAD Hikaye - Gelecek Vizyonu{% endblock %}
+
+{% block extra_css %}
+<style>
+.share-container {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.share-card {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    overflow: hidden;
+    max-width: 500px;
+    width: 100%;
+}
+
+.share-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 30px 20px;
+    text-align: center;
+}
+
+.share-image {
+    width: 100%;
+    height: 500px;
+    object-fit: cover;
+    display: block;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.image-container {
+    position: relative;
+    overflow: hidden;
+}
+
+.image-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 10px;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.image-container:hover .image-overlay {
+    opacity: 1;
+}
+
+.image-container:hover .share-image {
+    transform: scale(1.05);
+}
+
+/* Modal styles */
+.image-modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.9);
+}
+
+.modal-content {
+    margin: auto;
+    display: block;
+    max-width: 90%;
+    max-height: 90%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.modal-close {
+    position: absolute;
+    top: 15px;
+    right: 35px;
+    color: #f1f1f1;
+    font-size: 40px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.modal-close:hover {
+    color: #bbb;
+}
+
+.share-content {
+    padding: 30px 20px;
+}
+
+.story-text {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    line-height: 1.6;
+}
+
+.participants-list {
+    background: #e9ecef;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.participants-list h6 {
+    color: #495057;
+    margin-bottom: 10px;
+}
+
+.participants-list ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.participants-list li {
+    padding: 5px 0;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.participants-list li:last-child {
+    border-bottom: none;
+}
+
+.share-actions {
+    padding: 20px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.share-btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 25px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.share-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+.instagram-btn {
+    background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+    color: white;
+}
+
+.whatsapp-btn {
+    background: #25D366;
+    color: white;
+}
+
+.facebook-btn {
+    background: #1877F2;
+    color: white;
+}
+
+.twitter-btn {
+    background: #1DA1F2;
+    color: white;
+}
+
+.download-btn {
+    background: #28a745;
+    color: white;
+}
+
+.copy-btn {
+    background: #6c757d;
+    color: white;
+}
+
+.tumkad-badge {
+    background: #667eea;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-block;
+    margin-bottom: 15px;
+}
+
+@media (max-width: 480px) {
+    .share-container {
+        padding: 10px;
+    }
+    
+    .share-card {
+        border-radius: 15px;
+    }
+    
+    .share-image {
+        height: 400px;
+    }
+    
+    .share-actions {
+        flex-direction: column;
+    }
+    
+    .share-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="share-container">
+    <div class="share-card">
+        <div class="share-header">
+            <div class="tumkad-badge">
+                <i class="fas fa-users"></i> TUMKAD
+            </div>
+            <h3>Gelecek Vizyonu Hikayesi</h3>
+            <p class="mb-0">{{ process.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
+        </div>
+        
+        {% if process.generated_image_url %}
+        <div class="image-container">
+            <img src="{{ url_for('get_story_image', token=process.share_token) }}" 
+                 alt="TUMKAD Gelecek Vizyonu" 
+                 class="share-image"
+                 onclick="openImageModal(this.src, 'TUMKAD Gelecek Vizyonu Hikayesi')">
+            <div class="image-overlay">
+                <i class="fas fa-expand"></i>
+            </div>
+        </div>
+        {% else %}
+        <div class="share-image d-flex align-items-center justify-content-center bg-light">
+            <div class="text-center">
+                <i class="fas fa-image fa-4x text-muted mb-3"></i>
+                <p class="text-muted">Görsel henüz oluşturulmamış</p>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="share-content">
+            <div class="participants-list">
+                <h6><i class="fas fa-users"></i> Katılımcılar:</h6>
+                <ul>
+                    {% for participant in participants %}
+                    <li><i class="fas fa-user"></i> {{ participant.name }} ({{ participant.profession }})</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            
+            <div class="story-text">
+                <h6><i class="fas fa-book"></i> Hikaye:</h6>
+                <p>{{ process.story_text }}</p>
+            </div>
+        </div>
+        
+        <div class="share-actions">
+            {% if process.generated_image_url %}
+            <button class="share-btn instagram-btn" onclick="shareToInstagram()">
+                <i class="fab fa-instagram"></i>
+                Instagram
+            </button>
+            
+            <button class="share-btn whatsapp-btn" onclick="shareToWhatsApp()">
+                <i class="fab fa-whatsapp"></i>
+                WhatsApp
+            </button>
+            
+            <button class="share-btn facebook-btn" onclick="shareToFacebook()">
+                <i class="fab fa-facebook-f"></i>
+                Facebook
+            </button>
+            
+            <button class="share-btn twitter-btn" onclick="shareToTwitter()">
+                <i class="fab fa-twitter"></i>
+                Twitter
+            </button>
+            
+            <button class="share-btn download-btn" onclick="downloadImage()">
+                <i class="fas fa-download"></i>
+                İndir
+            </button>
+            {% endif %}
+            
+            <button class="share-btn copy-btn" onclick="copyLink()">
+                <i class="fas fa-link"></i>
+                Link Kopyala
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Image Modal -->
+<div id="imageModal" class="image-modal">
+    <span class="modal-close" onclick="closeImageModal()">&times;</span>
+    <img class="modal-content" id="modalImage">
+    <div id="modalCaption" style="text-align: center; color: white; margin-top: 20px;"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function shareToInstagram() {
+    const imageUrl = "{{ url_for('get_story_image', token=process.share_token, _external=True) }}";
+    const text = "TUMKAD etkinliğinde AI destekli gelecek vizyonu hikayesi oluşturuldu! 🚀 #TUMKAD #GelecekVizyonu #AI";
+    
+    // Instagram için daha iyi paylaşım stratejisi
+    const shareText = `${text}\n\nHikaye: {{ process.story_text[:100] }}...\n\nGörsel: ${imageUrl}\n\nPaylaşım linki: ${window.location.href}`;
+    copyToClipboard(shareText);
+    
+    // Kullanıcıya daha detaylı bilgi ver
+    const message = `Instagram paylaşımı için hazırlandı! 📸\n\n1. Kopyalanan metni Instagram'da paylaşın\n2. Görseli manuel olarak ekleyin\n3. Hashtag'leri kullanın: #TUMKAD #GelecekVizyonu #AI`;
+    alert(message);
+}
+
+function shareToWhatsApp() {
+    const imageUrl = "{{ url_for('get_story_image', token=process.share_token, _external=True) }}";
+    const text = "TUMKAD etkinliğinde AI destekli gelecek vizyonu hikayesi oluşturuldu! 🚀";
+    const url = `https://wa.me/?text=${encodeURIComponent(text + '\n\n' + imageUrl)}`;
+    window.open(url, '_blank');
+}
+
+function shareToFacebook() {
+    const imageUrl = "{{ url_for('get_story_image', token=process.share_token, _external=True) }}";
+    const text = "TUMKAD etkinliğinde AI destekli gelecek vizyonu hikayesi oluşturuldu! 🚀";
+    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(imageUrl)}&quote=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+}
+
+function shareToTwitter() {
+    const imageUrl = "{{ url_for('get_story_image', token=process.share_token, _external=True) }}";
+    const text = "TUMKAD etkinliğinde AI destekli gelecek vizyonu hikayesi oluşturuldu! 🚀 #TUMKAD #GelecekVizyonu #AI";
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(imageUrl)}`;
+    window.open(url, '_blank');
+}
+
+function downloadImage() {
+    const imageUrl = "{{ url_for('get_story_image', token=process.share_token, _external=True) }}";
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = `tumkad-hikaye-{{ process.id }}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function copyLink() {
+    const currentUrl = window.location.href;
+    copyToClipboard(currentUrl);
+    alert('Paylaşım linki kopyalandı!');
+}
+
+function copyToClipboard(text) {
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(function() {
+            console.log('Text copied to clipboard');
+        }, function(err) {
+            console.error('Could not copy text: ', err);
+            fallbackCopyTextToClipboard(text);
+        });
+    } else {
+        fallbackCopyTextToClipboard(text);
+    }
+}
+
+function fallbackCopyTextToClipboard(text) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        const successful = document.execCommand('copy');
+        if (!successful) {
+            console.error('Fallback: Oops, unable to copy');
+        }
+    } catch (err) {
+        console.error('Fallback: Oops, unable to copy', err);
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+// Add meta tags for social sharing
+document.addEventListener('DOMContentLoaded', function() {
+    // Update page title and meta tags for better social sharing
+    const metaTitle = document.querySelector('meta[property="og:title"]');
+    if (!metaTitle) {
+        const ogTitle = document.createElement('meta');
+        ogTitle.setAttribute('property', 'og:title');
+        ogTitle.setAttribute('content', 'TUMKAD Gelecek Vizyonu Hikayesi');
+        document.head.appendChild(ogTitle);
+    }
+    
+    const metaDescription = document.querySelector('meta[property="og:description"]');
+    if (!metaDescription) {
+        const ogDesc = document.createElement('meta');
+        ogDesc.setAttribute('property', 'og:description');
+        ogDesc.setAttribute('content', 'TUMKAD etkinliğinde AI destekli gelecek vizyonu hikayesi oluşturuldu!');
+        document.head.appendChild(ogDesc);
+    }
+    
+    const metaImage = document.querySelector('meta[property="og:image"]');
+    if (!metaImage && '{{ process.generated_image_url }}') {
+        const ogImage = document.createElement('meta');
+        ogImage.setAttribute('property', 'og:image');
+        ogImage.setAttribute('content', '{{ url_for("get_story_image", token=process.share_token, _external=True) }}');
+        document.head.appendChild(ogImage);
+    }
+});
+
+// Image modal functions
+function openImageModal(src, caption) {
+    const modal = document.getElementById('imageModal');
+    const modalImg = document.getElementById('modalImage');
+    const modalCaption = document.getElementById('modalCaption');
+    
+    modal.style.display = 'block';
+    modalImg.src = src;
+    modalCaption.innerHTML = caption;
+}
+
+function closeImageModal() {
+    document.getElementById('imageModal').style.display = 'none';
+}
+
+// Close modal when clicking outside the image
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('imageModal');
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeImageModal();
+        }
+    });
+    
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeImageModal();
+        }
+    });
+});
+</script>
+{% endblock %} 

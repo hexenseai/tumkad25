@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+
+{% block title %}TUMKAD AI Projesi - Gelecek Vizyonu Katılımcı Bilgileri{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <div class="card border-0 shadow">
+            <div class="card-header bg-primary text-white text-center">
+                <img src="{{ url_for('static', filename='images/form-header.png') }}" alt="TUMKAD" class="mb-3" style="display: block; margin-left: auto; margin-right: auto;">
+                <h2 class="mb-0">
+                    <i class="fas fa-robot"></i> TUMKAD AI Gelecek Vizyonu Katılımcı Bilgileri
+                </h2>
+                <p class="mb-0 mt-2">TUMKAD Yapay Zeka Destekli Gelecek Vizyonu Projesi</p>
+            </div>
+            <div class="card-body p-4">
+                <div class="alert alert-info" role="alert">
+                    <h6><i class="fas fa-info-circle"></i> Proje Hakkında:</h6>
+                    <p class="mb-0">Değerli TUMKAD Sempozyumu katılımcısı, bu form, geleceğe dair vizyonunuzu ve mesleki bilgilerinizi AI destekli bir görsel ve video deneyimine dönüştürmek için kullanılacaktır. Sağladığınız bilgiler, 2035 yılında gerçekleştireceğiniz yüksek etkili bir proje hikayesi ve bu hikayenin görsel canlandırması için kullanılacaktır. Bilgileriniz gizlilik politikamız doğrultusunda korunacaktır.</p>
+                </div>
+
+                <form method="POST" enctype="multipart/form-data" id="registerForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="phone" class="form-label">
+                                    <i class="fab fa-whatsapp"></i> WhatsApp Telefon Numarası *
+                                </label>
+                                <input type="tel" class="form-control" id="phone" name="phone" required placeholder="+90 5XX XXX XX XX">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">
+                                    <i class="fas fa-user"></i> Adınız Soyadınız *
+                                </label>
+                                <input type="text" class="form-control" id="name" name="name" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="photo" class="form-label">
+                            <i class="fas fa-camera"></i> Gelecek Vizyonunuzu oluşturmak için portre fotoğrafınızı yükleyiniz. *
+                        </label>
+                        <div class="input-group">
+                            <input type="file" class="form-control" id="photo" name="photo" accept="image/*" required>
+                            <button class="btn btn-outline-secondary" type="button" id="captureBtn">
+                                <i class="fas fa-camera"></i> Fotoğraf Çek
+                            </button>
+                        </div>
+                        <div class="form-text" style="display: block !important; visibility: visible !important; opacity: 1 !important;">
+                            <strong>Lütfen Net Bir Fotoğrafınızı Yükleyiniz:</strong><br>
+                            Yüksek Kaliteli Bir Görsel Oluşturabilmemiz İçin Fotoğrafınızın Aşağıdaki Özelliklere Sahip Olmasına Lütfen Dikkat Ediniz:
+                        </div>
+                        <div class="alert alert-warning mt-2">
+                            <ul class="mb-0 small">
+                                <li><strong>Aydınlatma:</strong> Yüzünüzün tamamen aydınlık olduğundan emin olun. Doğal ışık idealdir.</li>
+                                <li><strong>Netlik ve Odak:</strong> Fotoğrafınızın bulanık olmadığından, yüzünüzün net bir şekilde odakta olduğundan emin olun.</li>
+                                <li><strong>Yüz Konumu:</strong> Kameraya direkt olarak bakın. Yüzünüzün tamamı net bir şekilde görünmelidir.</li>
+                                <li><strong>Kompozisyon:</strong> Yüzünüz görselin yaklaşık %15-20'sini kaplamalıdır.</li>
+                                <li><strong>Arka Plan:</strong> Sade ve düzenli bir arka plan tercih edin.</li>
+                                <li><strong>Filtre ve Efekt Yok:</strong> Doğal halinizle yükleyin.</li>
+                                <li><strong>Dosya Türü:</strong> JPEG veya PNG formatında olmalıdır.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Photo Preview -->
+                    <div class="mb-4" id="photoPreview" style="display: none;">
+                        <div class="text-center">
+                            <img id="previewImg" src="" alt="Fotoğraf Önizleme" class="img-fluid rounded" style="max-height: 300px;">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="profession" class="form-label">
+                                    <i class="fas fa-briefcase"></i> Mesleğiniz / Temel Uzmanlık Alanı *
+                                </label>
+                                <input type="text" class="form-control" id="profession" name="profession" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="sector" class="form-label">
+                                    <i class="fas fa-industry"></i> Çalıştığınız Sektör *
+                                </label>
+                                <select class="form-select" id="sector" name="sector" required>
+                                    <option value="">Sektör seçiniz...</option>
+                                    <option value="Otomotiv">Otomotiv</option>
+                                    <option value="Eğitim, Danışmanlık ve İnsan Kaynakları">Eğitim, Danışmanlık ve İnsan Kaynakları</option>
+                                    <option value="Bilişim ve Teknoloji">Bilişim ve Teknoloji</option>
+                                    <option value="Kimya">Kimya</option>
+                                    <option value="Tekstil">Tekstil</option>
+                                    <option value="Perakende">Perakende</option>
+                                    <option value="İmalat / Üretim (Diğer Sanayiler)">İmalat / Üretim (Diğer Sanayiler)</option>
+                                    <option value="İnşaat, Gayrimenkul ve İç Mimarlık">İnşaat, Gayrimenkul ve İç Mimarlık</option>
+                                    <option value="Gıda ve Tarım">Gıda ve Tarım</option>
+                                    <option value="Enerji, Elektrik ve Çevre">Enerji, Elektrik ve Çevre</option>
+                                    <option value="Kamu Kurumları / Devlet">Kamu Kurumları / Devlet</option>
+                                    <option value="Genel Hizmetler">Genel Hizmetler (Ör.: Turizm, Organizasyon, Medya, İletişim, Pazarlama, Sigorta, Ulaştırma, Denizcilik, Hukuk, Fikri ve Sınai Haklar vb.)</option>
+                                    <option value="Sağlık">Sağlık</option>
+                                    <option value="Sivil Toplum Kuruluşları (STK)">Sivil Toplum Kuruluşları (STK)</option>
+                                    <option value="Öğrenci">Öğrenci</option>
+                                    <option value="Çalışmıyor / İş Arıyorum">Çalışmıyor / İş Arıyorum</option>
+                                    <option value="Emekli">Emekli</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="technical_interest" class="form-label">
+                            <i class="fas fa-lightbulb"></i> Sizi En Çok Heyecanlandıran Teknik Alan veya Özel İlgi Alanınız Nedir? *
+                        </label>
+                        <div class="form-text mb-2" style="display: block !important; visibility: visible !important; opacity: 1 !important;">
+                            <strong>Örnekler:</strong> "Yenilenebilir enerji kaynaklarını herkes için erişilebilir kılmak", "AI destekli kişiselleştirilmiş tedavilerle hastalıkları önlemek", "Uzayda kendi kendine yeten yaşam alanları tasarlamak" gibi büyük ve cesur bir hayal kurun.
+                        </div>
+                        <textarea class="form-control" id="technical_interest" name="technical_interest" rows="3" required 
+                                placeholder="Lütfen 1-2 cümle ile özetleyin. Bu, projenin ana fikrini oluşturacak."></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="future_impact" class="form-label">
+                            <i class="fas fa-rocket"></i> 2035 Yılında, Uzmanlık Alanınızla Dünyada Yaratmak İstediğiniz En Büyük Etki veya Çözmek İstediğiniz En Büyük Sorun Ne Olurdu? *
+                        </label>
+                        <div class="form-text mb-2" style="display: block !important; visibility: visible !important; opacity: 1 !important;">
+                            <strong>Örnekler:</strong> "Küresel iklim değişikliğini tersine çevirmek", "Dünya genelinde temiz su erişimini sağlamak", "Yapay zeka ile eğitimde fırsat eşitliği yaratmak" gibi dönüştürücü bir vizyon belirtin.
+                        </div>
+                        <textarea class="form-control" id="future_impact" name="future_impact" rows="3" required
+                                placeholder="Lütfen uzmanlık alanınızla ilgili 2035 yılında gerçekleştirmek istediğiniz en büyük etkiyi açıklayın."></textarea>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="work_environment" class="form-label">
+                            <i class="fas fa-building"></i> Bu Büyük Hayalinizi Gerçekleştirirken Kendinizi Nasıl Bir Ortamda Hayal Ediyorsunuz? *
+                        </label>
+                        <select class="form-select" id="work_environment" name="work_environment" required>
+                            <option value="">Ortam seçiniz...</option>
+                            <option value="Fütüristik ve minimalist bir laboratuvar/ofis">Fütüristik ve minimalist bir laboratuvar/ofis</option>
+                            <option value="Doğayla iç içe, yeşil teknolojilerle donatılmış bir kampüs">Doğayla iç içe, yeşil teknolojilerle donatılmış bir kampüs</option>
+                            <option value="Gökyüzünde veya uzayda bir istasyon/gözlem evi">Gökyüzünde veya uzayda bir istasyon/gözlem evi</option>
+                            <option value="Sanal gerçeklik (VR/AR) ile tasarlanan dijital bir dünya">Sanal gerçeklik (VR/AR) ile tasarlanan dijital bir dünya</option>
+                            <option value="İnsanların yoğun olduğu, akıllı bir şehrin merkezi">İnsanların yoğun olduğu, akıllı bir şehrin merkezi</option>
+                            <option value="Sakin, doğal bir ortamda, geleneksel veya küçük ölçekli bir çalışma alanı">Sakin, doğal bir ortamda, geleneksel veya küçük ölçekli bir çalışma alanı</option>
+                            <option value="Bağımsız, esnek veya gezgin bir çalışma ortamı">Bağımsız, esnek veya gezgin bir çalışma ortamı</option>
+                        </select>
+                    </div>
+
+                    <!-- Camera Capture Modal -->
+                    <div class="modal fade" id="cameraModal" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Fotoğraf Çek</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body text-center">
+                                    <video id="camera" width="100%" height="400" autoplay></video>
+                                    <canvas id="canvas" style="display: none;"></canvas>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                                    <button type="button" class="btn btn-primary" id="capturePhotoBtn">
+                                        <i class="fas fa-camera"></i> Fotoğraf Çek
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-success" role="alert">
+                        <h6><i class="fas fa-check-circle"></i> KVKK Aydınlatma Metni:</h6>
+                        <p class="mb-2">Bu formu doldurarak ve fotoğrafınızı yükleyerek, yukarıda belirtilen şartlar ve KVKK Aydınlatma Metni doğrultusunda kişisel verilerinizin işlenmesini ve kullanılmasını kabul etmiş olursunuz.</p>
+                        <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#kvkkModal">
+                            <i class="fas fa-file-text"></i> Detaylı KVKK Aydınlatma Metni
+                        </button>
+                    </div>
+
+                    <!-- KVKK Consent Checkbox -->
+                    <div class="mb-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="kvkkConsent" name="kvkk_consent" required>
+                            <label class="form-check-label" for="kvkkConsent">
+                                <strong>KVKK Onayı *</strong><br>
+                                <small class="text-muted">
+                                    Kişisel Verilerin Korunması Kanunu (KVKK) kapsamında, yukarıda belirtilen amaçlarla kişisel verilerimin işlenmesini ve kullanılmasını kabul ediyorum. 
+                                    <a href="#" data-bs-toggle="modal" data-bs-target="#kvkkModal" class="text-decoration-none">Detaylı aydınlatma metnini</a> okudum ve anladım.
+                                </small>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
+                            <i class="fas fa-paper-plane"></i> Kayıt Ol
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KVKK Modal -->
+<div class="modal fade" id="kvkkModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">KVKK Aydınlatma Metni</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6>Değerli TUMKAD Sempozyumu katılımcısı,</h6>
+                <p>Bu form, "TUMKAD Yapay Zeka Destekli Gelecek Vizyonu Projesi" kapsamında, sizin ve bir diğer mühendis meslektaşınızın 2035 yılına dair yenilikçi vizyonlarını yapay zeka aracılığıyla kişiselleştirilmiş bir görsel ve video deneyimine dönüştürmek amacıyla hazırlanmıştır.</p>
+                
+                <h6>Hangi Verileriniz Toplanacaktır?</h6>
+                <ul>
+                    <li><strong>Kimlik ve İletişim Bilgileri:</strong> Adınız Soyadınız, WhatsApp Telefon Numaranız.</li>
+                    <li><strong>Profesyonel Bilgiler:</strong> Mesleğiniz / Temel Uzmanlık Alanınız, Çalıştığınız Sektör, Özel İlgi Alanlarınız.</li>
+                    <li><strong>Vizyon Bilgileri:</strong> 2035 yılına dair gelecek vizyonunuzu ve bu vizyonu hayata geçirirken kendinizi hayal ettiğiniz ortamı içeren metinsel bilgiler.</li>
+                    <li><strong>Fotoğraf:</strong> Form üzerinden yükleyeceğiniz bireysel fotoğrafınız.</li>
+                </ul>
+
+                <h6>Verileriniz Nasıl İşlenecek ve Kullanılacaktır?</h6>
+                <p>Toplanan verileriniz, tamamen bu projenin amacına hizmet etmek üzere aşağıdaki şekillerde yapay zeka modelleriyle işlenecektir:</p>
+                <ul>
+                    <li><strong>Hikaye Oluşturma:</strong> Mesleki bilgileriniz ve vizyonlarınız, Google'ın gelişmiş dil modelleri (Vertex AI Gemini API) aracılığıyla analiz edilerek, sizin ve bir diğer katılımcının 2035 yılında birlikte gerçekleştireceği yüksek etkili bir proje hikayesine dönüştürülecektir.</li>
+                    <li><strong>Görsel ve Video Üretimi:</strong> Oluşturulan hikaye ve sizin fotoğrafınız, Google'ın görüntü ve video üretim modelleri (Vertex AI Imagen 3 ve Veo 3) kullanılarak, 9:16 dikey formatında, iki mühendisin de yer aldığı gerçekçi bir illüstrasyon görseline ve bu görselin 8 saniyelik dinamik bir video canlandırmasına dönüştürülecektir.</li>
+                    <li><strong>İletişim:</strong> Oluşturulan görsel ve video çıktısının bağlantı linki, belirttiğiniz WhatsApp telefon numaranıza gönderilecektir.</li>
+                </ul>
+
+                <h6>Veri Gizliliği ve Güvenliği:</h6>
+                <ul>
+                    <li>Toplanan tüm verileriniz, Google Cloud Platform'un güvenli altyapısında (Google Cloud Storage, Google Sheets) saklanacaktır.</li>
+                    <li>Verileriniz, yalnızca bu projede belirtilen amaçlar doğrultusunda kullanılacak ve üçüncü taraflarla paylaşılmayacaktır.</li>
+                    <li>Etkinliğin tamamlanmasının ardından, kişisel verileriniz (iletişim bilgileri ve yüklenen fotoğraflar) belirlenen süre sonunda güvenli bir şekilde silinecektir.</li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const photoInput = document.getElementById('photo');
+    const photoPreview = document.getElementById('photoPreview');
+    const previewImg = document.getElementById('previewImg');
+    const captureBtn = document.getElementById('captureBtn');
+    const cameraModal = new bootstrap.Modal(document.getElementById('cameraModal'));
+    const camera = document.getElementById('camera');
+    const canvas = document.getElementById('canvas');
+    const capturePhotoBtn = document.getElementById('capturePhotoBtn');
+    const kvkkConsent = document.getElementById('kvkkConsent');
+    const submitBtn = document.getElementById('submitBtn');
+    const registerForm = document.getElementById('registerForm');
+    let stream = null;
+
+    // Force visibility of all form-text elements
+    function ensureFormTextVisibility() {
+        const formTextElements = document.querySelectorAll('.form-text');
+        formTextElements.forEach(element => {
+            element.style.display = 'block';
+            element.style.visibility = 'visible';
+            element.style.opacity = '1';
+        });
+    }
+
+    // Call on page load
+    ensureFormTextVisibility();
+
+    // Also call after a short delay to ensure it works
+    setTimeout(ensureFormTextVisibility, 100);
+    setTimeout(ensureFormTextVisibility, 500);
+    setTimeout(ensureFormTextVisibility, 1000);
+
+    // KVKK Consent validation
+    function validateForm() {
+        const isKvkkChecked = kvkkConsent.checked;
+        const isPhotoSelected = photoInput.files.length > 0;
+        const isPhoneFilled = document.getElementById('phone').value.trim() !== '';
+        const isNameFilled = document.getElementById('name').value.trim() !== '';
+        const isProfessionFilled = document.getElementById('profession').value.trim() !== '';
+        const isSectorSelected = document.getElementById('sector').value !== '';
+        const isTechnicalInterestFilled = document.getElementById('technical_interest').value.trim() !== '';
+        const isFutureImpactFilled = document.getElementById('future_impact').value.trim() !== '';
+        const isWorkEnvironmentSelected = document.getElementById('work_environment').value !== '';
+
+        const allRequiredFieldsFilled = isPhoneFilled && isNameFilled && isProfessionFilled && 
+                                       isSectorSelected && isTechnicalInterestFilled && 
+                                       isFutureImpactFilled && isWorkEnvironmentSelected && 
+                                       isPhotoSelected && isKvkkChecked;
+
+        submitBtn.disabled = !allRequiredFieldsFilled;
+        
+        if (allRequiredFieldsFilled) {
+            submitBtn.classList.remove('btn-secondary');
+            submitBtn.classList.add('btn-primary');
+        } else {
+            submitBtn.classList.remove('btn-primary');
+            submitBtn.classList.add('btn-secondary');
+        }
+    }
+
+    // Add event listeners for form validation
+    kvkkConsent.addEventListener('change', validateForm);
+    photoInput.addEventListener('change', validateForm);
+    document.getElementById('phone').addEventListener('input', validateForm);
+    document.getElementById('name').addEventListener('input', validateForm);
+    document.getElementById('profession').addEventListener('input', validateForm);
+    document.getElementById('sector').addEventListener('change', validateForm);
+    document.getElementById('technical_interest').addEventListener('input', validateForm);
+    document.getElementById('future_impact').addEventListener('input', validateForm);
+    document.getElementById('work_environment').addEventListener('change', validateForm);
+
+    // File input change handler
+    photoInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImg.src = e.target.result;
+                photoPreview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Camera capture button
+    captureBtn.addEventListener('click', function() {
+        cameraModal.show();
+        startCamera();
+    });
+
+    // Start camera
+    function startCamera() {
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(function(mediaStream) {
+                stream = mediaStream;
+                camera.srcObject = mediaStream;
+            })
+            .catch(function(err) {
+                console.error('Kamera erişimi hatası:', err);
+                alert('Kamera erişimi sağlanamadı. Lütfen dosya yükleme seçeneğini kullanın.');
+            });
+    }
+
+    // Capture photo
+    capturePhotoBtn.addEventListener('click', function() {
+        const context = canvas.getContext('2d');
+        canvas.width = camera.videoWidth;
+        canvas.height = camera.videoHeight;
+        context.drawImage(camera, 0, 0);
+        
+        canvas.toBlob(function(blob) {
+            const file = new File([blob], 'captured_photo.jpg', { type: 'image/jpeg' });
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            photoInput.files = dt.files;
+            
+            // Show preview
+            previewImg.src = URL.createObjectURL(blob);
+            photoPreview.style.display = 'block';
+            
+            // Validate form after photo capture
+            validateForm();
+            
+            // Stop camera and close modal
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            cameraModal.hide();
+        }, 'image/jpeg');
+    });
+
+    // Stop camera when modal is closed
+    document.getElementById('cameraModal').addEventListener('hidden.bs.modal', function() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+    });
+
+    // Form submission validation
+    registerForm.addEventListener('submit', function(e) {
+        if (!kvkkConsent.checked) {
+            e.preventDefault();
+            alert('Lütfen KVKK onayını veriniz.');
+            kvkkConsent.focus();
+            return false;
+        }
+        
+        if (!photoInput.files.length) {
+            e.preventDefault();
+            alert('Lütfen bir fotoğraf yükleyiniz.');
+            photoInput.focus();
+            return false;
+        }
+    });
+
+    // Initial form validation
+    validateForm();
+});
+</script>
+{% endblock %} 

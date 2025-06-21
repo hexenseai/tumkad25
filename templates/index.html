@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Ana Sayfa - TUMKAD{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto text-center">
+        <div class="hero-section mb-5">
+            <h1 class="display-4 fw-bold text-primary mb-4">
+                <img src="{{ url_for('static', filename='images/TUMKAD-Logo-11-disi.png') }}" alt="TUMKAD Logo">
+            </h1>
+            <p class="lead mb-5">
+                Geleceğin vizyonunu AI destekli görsellerle oluşturuyoruz. 
+                Etkinliğimize katılın ve kendi gelecek vizyonunuzu görün!
+            </p>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <i class="fas fa-user-plus fa-3x text-primary"></i>
+                        </div>
+                        <h5 class="card-title">Kayıt Ol</h5>
+                        <p class="card-text">Etkinliğe katılmak için bilgilerinizi girin ve fotoğrafınızı yükleyin.</p>
+                        <a href="{{ url_for('register') }}" class="btn btn-primary">
+                            <i class="fas fa-arrow-right"></i> Kayıt Ol
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <i class="fas fa-magic fa-3x text-success"></i>
+                        </div>
+                        <h5 class="card-title">AI Görsel</h5>
+                        <p class="card-text">Fotoğrafınızdan yola çıkarak geleceğinizdeki vizyonunuzu AI ile oluşturalım.</p>
+                        <a href="{{ url_for('generate_story') }}" class="btn btn-success">
+                            <i class="fas fa-magic"></i> AI Görseli Üret
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <i class="fas fa-presentation fa-3x text-info"></i>
+                        </div>
+                        <h5 class="card-title">Slayt Gösterisi</h5>
+                        <p class="card-text">Oluşturulan görselleri 9:16 ölçeğinde 3'lü slaytlar halinde görüntüleyin.</p>
+                        <a href="{{ url_for('slides') }}" class="btn btn-info">
+                            <i class="fas fa-play"></i> Slaytlar
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-5">
+            <div class="alert alert-info" role="alert">
+                <h5><i class="fas fa-info-circle"></i> Nasıl Çalışır?</h5>
+                <ol class="mb-0">
+                    <li>Kayıt formunu doldurun ve fotoğrafınızı yükleyin</li>
+                    <li>AI sistemi fotoğrafınızdan gelecek vizyonunuzu oluşturur</li>
+                    <li>Görseliniz size özel link ile paylaşılır</li>
+                    <li>Instagram'da paylaşabilir ve arkadaşlarınızla bölebilirsiniz</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
