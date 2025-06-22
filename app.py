@@ -7,7 +7,7 @@ from datetime import datetime
 import json
 from PIL import Image
 import io
-from gcs import upload_to_gcs, get_gcs_file_url, delete_from_gcs, bucket, download_from_gcs
+from gcs import upload_to_gcs, get_gcs_file_url, delete_from_gcs, download_from_gcs
 import tempfile
 
 from utils import normalize_phone, apply_template_to_image_data
@@ -15,10 +15,6 @@ from generation import generate_collaborative_story, regenerate_image_from_story
 
 # OpenAI API konfigürasyonu
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', 'your-openai-api-key-here')
-
-# Google Cloud Storage konfigürasyonu
-GCS_BUCKET_NAME = os.environ.get('GCS_BUCKET_NAME', 'tumkad25-storage')
-GCS_PROJECT_ID = os.environ.get('GOOGLE_CLOUD_PROJECT', 'api-project-974861835731')
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'tumkad-secret-key-2024'
@@ -259,10 +255,10 @@ def get_image(token):
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     """
-    Uploaded dosyaları serve eder. GCS'den indirip doğrudan gösterir.
+    Uploaded dosyaları serve eder. Yerel dosya sisteminden doğrudan gösterir.
     """
     try:
-        # Önce yerel dosyayı kontrol et
+        # Yerel dosyayı kontrol et
         local_path = os.path.join('local_uploads', filename)
         if os.path.exists(local_path):
             return send_file(
@@ -271,37 +267,6 @@ def uploaded_file(filename):
                 as_attachment=False,
                 download_name=filename
             )
-        
-        # Yerel dosya yoksa GCS'den indir
-        if bucket:
-            gcs_path = f"uploads/{filename}"
-            blob = bucket.blob(gcs_path)
-            
-            if blob.exists():
-                # GCS'den dosyayı indir ve geçici olarak kaydet
-                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
-                blob.download_to_filename(temp_file.name)
-                
-                # Dosyayı serve et
-                file_data = None
-                with open(temp_file.name, 'rb') as f:
-                    file_data = f.read()
-                
-                # Geçici dosyayı temizle
-                try:
-                    os.remove(temp_file.name)
-                except:
-                    pass
-                
-                return send_file(
-                    io.BytesIO(file_data),
-                    mimetype='image/png',
-                    as_attachment=False,
-                    download_name=filename
-                )
-            else:
-                print(f"GCS file not found: {gcs_path}")
-                return "Dosya bulunamadı", 404
         else:
             print(f"Local file not found: {local_path}")
             return "Dosya bulunamadı", 404
@@ -313,10 +278,10 @@ def uploaded_file(filename):
 @app.route('/generated/<filename>')
 def generated_file(filename):
     """
-    Generated dosyaları serve eder. GCS'den indirip doğrudan gösterir.
+    Generated dosyaları serve eder. Yerel dosya sisteminden doğrudan gösterir.
     """
     try:
-        # Önce yerel dosyayı kontrol et
+        # Yerel dosyayı kontrol et
         local_path = os.path.join('local_generated', filename)
         if os.path.exists(local_path):
             return send_file(
@@ -325,37 +290,6 @@ def generated_file(filename):
                 as_attachment=False,
                 download_name=filename
             )
-        
-        # Yerel dosya yoksa GCS'den indir
-        if bucket:
-            gcs_path = f"generated/{filename}"
-            blob = bucket.blob(gcs_path)
-            
-            if blob.exists():
-                # GCS'den dosyayı indir ve geçici olarak kaydet
-                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
-                blob.download_to_filename(temp_file.name)
-                
-                # Dosyayı serve et
-                file_data = None
-                with open(temp_file.name, 'rb') as f:
-                    file_data = f.read()
-                
-                # Geçici dosyayı temizle
-                try:
-                    os.remove(temp_file.name)
-                except:
-                    pass
-                
-                return send_file(
-                    io.BytesIO(file_data),
-                    mimetype='image/png',
-                    as_attachment=False,
-                    download_name=filename
-                )
-            else:
-                print(f"GCS file not found: {gcs_path}")
-                return "Dosya bulunamadı", 404
         else:
             print(f"Local file not found: {local_path}")
             return "Dosya bulunamadı", 404
@@ -465,26 +399,28 @@ def debug_descriptions():
             'id': p.id,
             'name': p.name,
             'photo_path': p.photo_path,
-            'photo_exists': p.photo_path is not None and p.photo_path.startswith('https://storage.googleapis.com/')
+            'photo_exists': p.photo_path is not None and p.photo_path.startswith('/local_files/')
         }
         
-        # GCS URL'si varsa dosya bilgilerini kontrol et
-        if p.photo_path and p.photo_path.startswith('https://storage.googleapis.com/'):
+        # Yerel dosya URL'si varsa dosya bilgilerini kontrol et
+        if p.photo_path and p.photo_path.startswith('/local_files/'):
             try:
-                # GCS'den dosya bilgilerini al
-                if p.photo_path.startswith(f"https://storage.googleapis.com/{GCS_BUCKET_NAME}/"):
-                    blob_path = p.photo_path.replace(f"https://storage.googleapis.com/{GCS_BUCKET_NAME}/", "")
+                # Yerel dosya bilgilerini al
+                local_path = p.photo_path.replace('/local_files/', '')
+                if local_path.startswith('uploads/'):
+                    full_path = os.path.join('local_uploads', local_path.replace('uploads/', ''))
+                elif local_path.startswith('generated/'):
+                    full_path = os.path.join('local_generated', local_path.replace('generated/', ''))
                 else:
-                    blob_path = p.photo_path
+                    full_path = local_path
                 
-                blob = bucket.blob(blob_path)
-                if blob.exists():
-                    info['file_size'] = blob.size
+                if os.path.exists(full_path):
+                    info['file_size'] = os.path.getsize(full_path)
                     info['file_path'] = p.photo_path
                 else:
                     info['file_exists'] = False
             except Exception as e:
-                info['gcs_error'] = str(e)
+                info['local_error'] = str(e)
         
         debug_info.append(info)
     
@@ -758,33 +694,25 @@ def debug_image_urls():
         info = {
             'process_id': process.id,
             'generated_image_url': process.generated_image_url,
-            'url_type': 'GCS' if process.generated_image_url and process.generated_image_url.startswith('http') else 'Local' if process.generated_image_url else 'None',
+            'url_type': 'Local' if process.generated_image_url and process.generated_image_url.startswith('/local_files/') else 'None',
             'created_at': process.created_at.isoformat() if process.created_at else None
         }
         
         # URL varsa dosya varlığını kontrol et
         if process.generated_image_url:
-            if process.generated_image_url.startswith('https://storage.googleapis.com/'):
-                # GCS dosyasını kontrol et
-                try:
-                    if process.generated_image_url.startswith(f"https://storage.googleapis.com/{GCS_BUCKET_NAME}/"):
-                        blob_path = process.generated_image_url.replace(f"https://storage.googleapis.com/{GCS_BUCKET_NAME}/", "")
-                    else:
-                        blob_path = process.generated_image_url
-                    
-                    blob = bucket.blob(blob_path)
-                    info['file_exists'] = blob.exists()
-                    if blob.exists():
-                        info['file_size'] = blob.size
-                except Exception as e:
-                    info['gcs_error'] = str(e)
-            else:
+            if process.generated_image_url.startswith('/local_files/'):
                 # Yerel dosyayı kontrol et
-                filename = process.generated_image_url.split('/')[-1] if '/' in process.generated_image_url else process.generated_image_url
-                local_path = os.path.join('local_generated', filename)
-                info['file_exists'] = os.path.exists(local_path)
-                if os.path.exists(local_path):
-                    info['file_size'] = os.path.getsize(local_path)
+                local_path = process.generated_image_url.replace('/local_files/', '')
+                if local_path.startswith('uploads/'):
+                    full_path = os.path.join('local_uploads', local_path.replace('uploads/', ''))
+                elif local_path.startswith('generated/'):
+                    full_path = os.path.join('local_generated', local_path.replace('generated/', ''))
+                else:
+                    full_path = local_path
+                
+                info['file_exists'] = os.path.exists(full_path)
+                if os.path.exists(full_path):
+                    info['file_size'] = os.path.getsize(full_path)
         
         debug_info.append(info)
     

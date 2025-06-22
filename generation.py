@@ -386,7 +386,7 @@ def generate_selfie_with_gpt4_vision(participants, story):
         for participant in participants:
             if participant.photo_path:
                 try:
-                    # GCS'den fotoğrafı indir
+                    # Yerel dosyadan fotoğrafı oku
                     image_file_path = download_from_gcs(participant.photo_path)
                     if image_file_path:
                         # Dosyayı oku
@@ -603,8 +603,12 @@ def generate_group_futuristic_selfie_with_image_edit(participants, story):
                 
                 img = Image.open(io.BytesIO(image_data))
                 
-                # 1024x1024 boyutuna getir (square format)
-                img = img.resize((1024, 1024), Image.Resampling.LANCZOS)
+                # Eğer görsel zaten 1024x1024 ise olduğu gibi kullan, değilse resize et
+                if img.size == (1024, 1024):
+                    print(f"✓ Photo for {participant.name} is already 1024x1024, using as is")
+                else:
+                    print(f"✓ Resizing photo for {participant.name} from {img.size} to 1024x1024")
+                    img = img.resize((1024, 1024), Image.Resampling.LANCZOS)
                 
                 # PNG formatında kaydet
                 img_buffer = io.BytesIO()
