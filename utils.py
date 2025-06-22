@@ -41,18 +41,23 @@ def get_participant_reference_images(participants):
 def apply_template_to_image_data(image_data):
     """
     Üretilen görsele şablonu uygular.
+    final_image_data'yı 2:3 oranında yerleştirir ve 9:16 canvas'ın ortasında konumlandırır.
     """
     try:
         # AI görselini yükle
         ai_img = Image.open(io.BytesIO(image_data))
         ai_img = ai_img.convert('RGBA')
-        ai_img = ai_img.resize((1080, 1080), Image.Resampling.LANCZOS)
         
-        # 1080x1920 boyutunda canvas oluştur
+        # AI görselini 2:3 oranında işle (1080x1620)
+        ai_img = ai_img.resize((1080, 1620), Image.Resampling.LANCZOS)
+        
+        # 9:16 boyutunda canvas oluştur (1080x1920)
         canvas = Image.new('RGBA', (1080, 1920), (0, 0, 0, 0))
         
-        # AI görselini canvas'a yerleştir (0, 477 koordinatlarına)
-        canvas.paste(ai_img, (0, 477), ai_img)
+        # AI görselini canvas'ın ortasında konumlandır
+        # 1920 - 1620 = 300 pixel boşluk, 150 pixel üstte 150 pixel altta
+        y_position = 150
+        canvas.paste(ai_img, (0, y_position), ai_img)
         
         # Şablonu yükle
         template_path = os.path.join('static', 'images', 'Gorsel-sablon.png')

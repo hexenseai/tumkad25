@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, send_file
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.utils import secure_filename
 import os
@@ -7,21 +7,14 @@ from datetime import datetime
 import json
 from PIL import Image
 import io
-from gcs import upload_to_gcs, get_gcs_file_url, delete_from_gcs, bucket
+from gcs import upload_to_gcs, get_gcs_file_url, delete_from_gcs, bucket, download_from_gcs
+import tempfile
 
-from utils import normalize_phone, get_participant_reference_images, apply_template_to_image_data
-from generation import analyze_participant_personality, find_common_themes, generate_collaborative_story, generate_image_with_lumalabs, generate_visual_references
+from utils import normalize_phone, apply_template_to_image_data
+from generation import generate_collaborative_story, regenerate_image_from_story
 
-# Google Cloud credentials ayarla
-credentials_path = os.path.join(os.getcwd(), 'api-project-974861835731-14fb4124b1b2.json')
-if os.path.exists(credentials_path):
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials_path
-    print(f"Google Cloud credentials loaded from: {credentials_path}")
-else:
-    print(f"Warning: Google Cloud credentials file not found at: {credentials_path}")
-
-# Lumalabs.ai API konfigürasyonu
-LUMALABS_API_KEY = os.environ.get('LUMALABS_API_KEY', 'your-lumalabs-api-key-here')
+# OpenAI API konfigürasyonu
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', 'your-openai-api-key-here')
 
 # Google Cloud Storage konfigürasyonu
 GCS_BUCKET_NAME = os.environ.get('GCS_BUCKET_NAME', 'tumkad25-storage')
@@ -68,6 +61,8 @@ class GenerationProcess(db.Model):
     image_prompt = db.Column(db.Text)
     generated_image_url = db.Column(db.String(255))
     share_token = db.Column(db.String(100), unique=True)  # Hikaye paylaşım token'ı
+    status = db.Column(db.String(20), default='processing')  # processing, completed, failed
+    whatsapp_notification_sent = db.Column(db.Boolean, default=False)  # WhatsApp bildirimi gönderildi mi
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 # Routes
@@ -175,8 +170,11 @@ def admin():
 
 @app.route('/slides')
 def slides():
-    # Get all generated stories from GenerationProcess
-    processes = GenerationProcess.query.filter(GenerationProcess.generated_image_url.isnot(None)).all()
+    # Get all completed stories from GenerationProcess
+    processes = GenerationProcess.query.filter(
+        GenerationProcess.generated_image_url.isnot(None),
+        GenerationProcess.status == 'completed'
+    ).all()
     
     # Create a flat list of all story data
     all_stories = []
@@ -236,8 +234,9 @@ def get_story_image(token):
     if not process or not process.generated_image_url:
         return "Görsel bulunamadı", 404
     
-    # GCS URL'sini doğrudan döndür
-    return redirect(process.generated_image_url)
+    # Filename'i çıkar ve generated_file route'unu kullan
+    filename = process.generated_image_url.split('/')[-1] if '/' in process.generated_image_url else process.generated_image_url
+    return redirect(url_for('generated_file', filename=filename))
 
 @app.route('/image/<token>')
 def get_image(token):
@@ -251,22 +250,119 @@ def get_image(token):
     for process in processes:
         participant_ids = json.loads(process.participant_ids)
         if participant.id in participant_ids and process.generated_image_url:
-            # GCS URL'sini doğrudan döndür
-            return redirect(process.generated_image_url)
+            # Filename'i çıkar ve generated_file route'unu kullan
+            filename = process.generated_image_url.split('/')[-1] if '/' in process.generated_image_url else process.generated_image_url
+            return redirect(url_for('generated_file', filename=filename))
     
     return "Görsel bulunamadı", 404
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
-    # GCS URL'sini oluştur ve yönlendir
-    gcs_url = get_gcs_file_url(filename, 'uploads')
-    return redirect(gcs_url)
+    """
+    Uploaded dosyaları serve eder. GCS'den indirip doğrudan gösterir.
+    """
+    try:
+        # Önce yerel dosyayı kontrol et
+        local_path = os.path.join('local_uploads', filename)
+        if os.path.exists(local_path):
+            return send_file(
+                local_path,
+                mimetype='image/png',
+                as_attachment=False,
+                download_name=filename
+            )
+        
+        # Yerel dosya yoksa GCS'den indir
+        if bucket:
+            gcs_path = f"uploads/{filename}"
+            blob = bucket.blob(gcs_path)
+            
+            if blob.exists():
+                # GCS'den dosyayı indir ve geçici olarak kaydet
+                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+                blob.download_to_filename(temp_file.name)
+                
+                # Dosyayı serve et
+                file_data = None
+                with open(temp_file.name, 'rb') as f:
+                    file_data = f.read()
+                
+                # Geçici dosyayı temizle
+                try:
+                    os.remove(temp_file.name)
+                except:
+                    pass
+                
+                return send_file(
+                    io.BytesIO(file_data),
+                    mimetype='image/png',
+                    as_attachment=False,
+                    download_name=filename
+                )
+            else:
+                print(f"GCS file not found: {gcs_path}")
+                return "Dosya bulunamadı", 404
+        else:
+            print(f"Local file not found: {local_path}")
+            return "Dosya bulunamadı", 404
+            
+    except Exception as e:
+        print(f"Uploaded file serving error: {e}")
+        return "Dosya servis hatası", 500
 
 @app.route('/generated/<filename>')
 def generated_file(filename):
-    # GCS URL'sini oluştur ve yönlendir
-    gcs_url = get_gcs_file_url(filename, 'generated')
-    return redirect(gcs_url)
+    """
+    Generated dosyaları serve eder. GCS'den indirip doğrudan gösterir.
+    """
+    try:
+        # Önce yerel dosyayı kontrol et
+        local_path = os.path.join('local_generated', filename)
+        if os.path.exists(local_path):
+            return send_file(
+                local_path,
+                mimetype='image/png',
+                as_attachment=False,
+                download_name=filename
+            )
+        
+        # Yerel dosya yoksa GCS'den indir
+        if bucket:
+            gcs_path = f"generated/{filename}"
+            blob = bucket.blob(gcs_path)
+            
+            if blob.exists():
+                # GCS'den dosyayı indir ve geçici olarak kaydet
+                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+                blob.download_to_filename(temp_file.name)
+                
+                # Dosyayı serve et
+                file_data = None
+                with open(temp_file.name, 'rb') as f:
+                    file_data = f.read()
+                
+                # Geçici dosyayı temizle
+                try:
+                    os.remove(temp_file.name)
+                except:
+                    pass
+                
+                return send_file(
+                    io.BytesIO(file_data),
+                    mimetype='image/png',
+                    as_attachment=False,
+                    download_name=filename
+                )
+            else:
+                print(f"GCS file not found: {gcs_path}")
+                return "Dosya bulunamadı", 404
+        else:
+            print(f"Local file not found: {local_path}")
+            return "Dosya bulunamadı", 404
+            
+    except Exception as e:
+        print(f"Generated file serving error: {e}")
+        return "Dosya servis hatası", 500
 
 @app.route('/api/participants')
 def api_participants():
@@ -305,106 +401,56 @@ def generate_story():
             flash('Bazı numaralara ait katılımcı bulunamadı.', 'danger')
             return render_template('generate_story.html', participants=[], process=None)
         
-        # Hikaye oluştur
-        story_text, image_prompt = generate_collaborative_story(participants)
-        
-        if not story_text or not image_prompt:
-            flash('Hikaye oluşturulurken bir hata oluştu.', 'danger')
+        # Yeni hikaye oluşturma süreci - 6 adımlı süreç
+        if OPENAI_API_KEY == 'your-openai-api-key-here':
+            flash('OpenAI API anahtarı eksik. Lütfen .env dosyasında OPENAI_API_KEY değişkenini ayarlayın.', 'danger')
             return render_template('generate_story.html', participants=[], process=None)
         
-        # Katılımcıların fotoğraflarını referans olarak al
-        reference_images = get_participant_reference_images(participants)
-        generated_image_url = None
-        if reference_images and LUMALABS_API_KEY != 'your-lumalabs-api-key-here':
-            generated_image_data = generate_image_with_lumalabs(image_prompt, reference_images)
-            if generated_image_data:
+        try:
+            # Yeni generate_collaborative_story fonksiyonu hem hikaye hem görsel üretir
+            story_text, story_visual_prompt, final_image_data = generate_collaborative_story(participants)
+            
+            if not story_text:
+                flash('Hikaye oluşturulurken bir hata oluştu.', 'danger')
+                return render_template('generate_story.html', participants=[], process=None)
+            
+            generated_image_url = None
+            if final_image_data:
+                # Görseli GCS'e yükle
                 generated_filename = f"generated_story_{'_'.join([str(p.id) for p in participants])}_{uuid.uuid4()}.png"
-                gcs_url = upload_to_gcs(generated_image_data, generated_filename, 'generated')
+                gcs_url = upload_to_gcs(final_image_data, generated_filename, 'generated')
                 if gcs_url:
                     generated_image_url = gcs_url
                 else:
                     flash('Görsel GCS\'e yüklenemedi.', 'danger')
             else:
-                # Asenkron işlem başlatıldı, callback ile sonucu alacağız
-                flash('Görsel üretimi başlatıldı. Tamamlandığında bildirim alacaksınız.', 'info')
-        else:
-            flash('Lumalabs.ai API anahtarı eksik veya referans görsel yok.', 'danger')
-        
-        # DB kaydı - hikaye, prompt ve görsel URL'si kaydedilecek
-        process = GenerationProcess(
-            participant_ids=json.dumps([p.id for p in participants]),
-            story_text=story_text,
-            image_prompt=image_prompt,
-            generated_image_url=generated_image_url,
-            share_token=str(uuid.uuid4())
-        )
-        db.session.add(process)
-        db.session.commit()
-        
-        flash('Hikaye ve görsel başarıyla oluşturuldu!', 'success')
-        return render_template('generate_story.html', participants=participants, process=process)
-    return render_template('generate_story.html', participants=[], process=None)
-
-@app.route('/generate_image/<int:process_id>', methods=['POST'])
-def generate_image(process_id):
-    """
-    Mevcut bir hikaye için görsel üretir.
-    Lumalabs.ai API kullanarak katılımcıların fotoğraflarını referans alır.
-    """
-    if not session.get('admin_logged_in'):
-        return jsonify({'success': False, 'error': 'Yetkisiz erişim'}), 401
+                flash('Görsel üretimi başarısız oldu.', 'warning')
+            
+            # DB kaydı - hikaye, görsel prompt ve görsel URL'si kaydedilecek
+            process = GenerationProcess(
+                participant_ids=json.dumps([p.id for p in participants]),
+                story_text=story_text,
+                image_prompt=story_visual_prompt,  # Artık gerçek prompt kaydediliyor
+                generated_image_url=generated_image_url,
+                share_token=str(uuid.uuid4()),
+                status='completed' if generated_image_url else 'failed'
+            )
+            db.session.add(process)
+            db.session.commit()
+            
+            if generated_image_url:
+                flash('Hikaye ve görsel başarıyla oluşturuldu!', 'success')
+            else:
+                flash('Hikaye oluşturuldu ancak görsel üretimi başarısız oldu.', 'warning')
+            
+            return render_template('generate_story.html', participants=participants, process=process)
+            
+        except Exception as e:
+            print(f"Story generation error: {e}")
+            flash(f'Hikaye oluşturulurken bir hata oluştu: {str(e)}', 'danger')
+            return render_template('generate_story.html', participants=[], process=None)
     
-    try:
-        process = db.session.get(GenerationProcess, process_id)
-        if not process:
-            return jsonify({'success': False, 'error': 'Hikaye bulunamadı'}), 404
-        
-        if not process.image_prompt:
-            return jsonify({'success': False, 'error': 'Görsel prompt bulunamadı'}), 404
-        
-        # Katılımcıları getir
-        participant_ids = json.loads(process.participant_ids)
-        participants = Participant.query.filter(Participant.id.in_(participant_ids)).all()
-        
-        if not participants:
-            return jsonify({'success': False, 'error': 'Katılımcılar bulunamadı'}), 404
-        
-        # Katılımcıların fotoğraflarını referans olarak al
-        reference_images = get_participant_reference_images(participants)
-        
-        # Görsel üret
-        generated_filename = f"generated_story_{process_id}_{uuid.uuid4()}.png"
-        
-        # Lumalabs.ai ile görsel üret (referans görsellerle)
-        if reference_images and LUMALABS_API_KEY != 'your-lumalabs-api-key-here':
-            generated_image_data = generate_image_with_lumalabs(process.image_prompt, reference_images)
-        else:
-            return jsonify({'success': False, 'error': 'Lumalabs.ai API anahtarı eksik veya referans görsel yok'}), 500
-        
-        if not generated_image_data:
-            return jsonify({'success': False, 'error': 'Görsel üretilemedi'}), 500
-        
-        # GCS'e yükle
-        gcs_url = upload_to_gcs(generated_image_data, generated_filename, 'generated')
-        
-        if not gcs_url:
-            return jsonify({'success': False, 'error': 'Görsel GCS\'e yüklenemedi'}), 500
-        
-        # Veritabanını güncelle
-        process.generated_image_url = gcs_url
-        db.session.commit()
-        
-        return jsonify({
-            'success': True, 
-            'image_url': gcs_url,
-            'message': 'Görsel başarıyla üretildi!',
-            'method': 'Lumalabs.ai'
-        })
-        
-    except Exception as e:
-        print(f"Image generation error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
+    return render_template('generate_story.html', participants=[], process=None)
 
 @app.route('/debug_descriptions')
 def debug_descriptions():
@@ -448,7 +494,7 @@ def debug_descriptions():
 def debug_story_generation(participant_id):
     """
     Tek bir katılımcı için hikaye oluşturma sürecini test eder.
-    Gelecek vizyonlarının birleşmesini gösterir.
+    Yeni 6 adımlı süreci gösterir.
     """
     if not session.get('admin_logged_in'):
         return "Yetkisiz erişim", 401
@@ -458,21 +504,11 @@ def debug_story_generation(participant_id):
         if not participant:
             return "Katılımcı bulunamadı", 404
         
-        # Kişilik analizi ve anahtar kelimeleri çıkar
-        personality, keywords = analyze_participant_personality(participant)
-        
-        # Tek katılımcı ile hikaye oluştur (test için)
+        # Yeni süreç ile test
         participants = [participant]
-        participants_keywords = [(participant.name, keywords)]
         
-        # Ortak temaları bul
-        common_themes, project_idea = find_common_themes(participants_keywords)
-        
-        # Görsel referansları oluştur
-        visual_references = generate_visual_references(common_themes, project_idea)
-        
-        # Hikaye oluştur
-        story_text, image_prompt = generate_collaborative_story(participants)
+        # Yeni generate_collaborative_story fonksiyonunu test et
+        story_text, story_visual_prompt, final_image_data = generate_collaborative_story(participants)
         
         debug_info = {
             'participant': {
@@ -484,22 +520,22 @@ def debug_story_generation(participant_id):
                 'future_impact': participant.future_impact,
                 'work_environment': participant.work_environment
             },
-            'analysis': {
-                'personality': personality,
-                'keywords': keywords
+            'new_process': {
+                'story_text': story_text,
+                'story_visual_prompt': story_visual_prompt,
+                'image_generated': final_image_data is not None,
+                'image_size': len(final_image_data) if final_image_data else 0
             },
-            'themes': {
-                'common_themes': common_themes,
-                'project_idea': project_idea,
-                'visual_references': visual_references
-            },
-            'story': {
-                'text': story_text,
-                'image_prompt': image_prompt
-            },
-            'vision_analysis': {
-                'future_vision': participant.future_impact,
-                'vision_keywords': [kw for kw in keywords if any(word in kw.lower() for word in ['future', 'vision', 'impact', 'change', 'innovation', 'technology', 'sustainable', 'collaborative'])]
+            'process_info': {
+                'method': 'New 6-step OpenAI process',
+                'steps': [
+                    '1. Individual vision story generation',
+                    '2. Collaborative future story creation',
+                    '3. Story visual prompt creation',
+                    '4. Group selfie generation with gpt-image-1',
+                    '5. Image generation with DALL-E',
+                    '6. AI remix of story and selfie images'
+                ]
             }
         }
         
@@ -572,6 +608,262 @@ def delete_story(process_id):
         print(f"Story deletion error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/local_files/<folder>/<filename>')
+def local_file(folder, filename):
+    """
+    Yerel dosyaları servis eder.
+    """
+    try:
+        if folder == 'uploads':
+            file_path = os.path.join('local_uploads', filename)
+        elif folder == 'generated':
+            file_path = os.path.join('local_generated', filename)
+        else:
+            return "Geçersiz klasör", 404
+        
+        if os.path.exists(file_path):
+            return send_file(file_path, mimetype='image/png')
+        else:
+            return "Dosya bulunamadı", 404
+    except Exception as e:
+        print(f"Local file serving error: {e}")
+        return "Dosya servis hatası", 500
+
+@app.route('/generate_image/<int:process_id>', methods=['POST'])
+def generate_image(process_id):
+    """
+    Generate image for a specific story process
+    """
+    try:
+        # Find the generation process
+        process = GenerationProcess.query.get(process_id)
+        if not process:
+            return jsonify({'success': False, 'error': 'Process not found'}), 404
+        
+        # Get participant IDs from the process
+        participant_ids = json.loads(process.participant_ids)
+        
+        # Get participants
+        participants = Participant.query.filter(Participant.id.in_(participant_ids)).all()
+        if not participants:
+            return jsonify({'success': False, 'error': 'No participants found for this process'}), 400
+        
+        # Generate collaborative story and image
+        story, story_visual_prompt, image_data = generate_collaborative_story(participants)
+        
+        if not image_data:
+            # Set status to failed if image generation fails
+            process.status = 'failed'
+            db.session.commit()
+            return jsonify({'success': False, 'error': 'Failed to generate image'}), 500
+        
+        # Save image to GCS
+        filename = f"generated_story_{process_id}_{uuid.uuid4()}.png"
+        gcs_url = upload_to_gcs(image_data, filename, 'generated')
+        
+        if not gcs_url:
+            return jsonify({'success': False, 'error': 'Failed to upload image to storage'}), 500
+        
+        # Update process with generated image URL and prompt
+        process.generated_image_url = gcs_url
+        process.status = 'completed'  # Set status to completed
+        if story and not process.story_text:
+            process.story_text = story
+        if story_visual_prompt and not process.image_prompt:
+            process.image_prompt = story_visual_prompt
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Image generated successfully',
+            'image_url': gcs_url,
+            'method': 'DALL-E 3 with Character Reference'
+        })
+        
+    except Exception as e:
+        print(f"Error generating image for process {process_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/regenerate_image/<int:process_id>', methods=['POST'])
+def regenerate_image(process_id):
+    """
+    Mevcut hikaye ve görsel prompt'undan görseli yeniden üretir.
+    """
+    try:
+        # Find the generation process
+        process = GenerationProcess.query.get(process_id)
+        if not process:
+            return jsonify({'success': False, 'error': 'Process not found'}), 404
+        
+        # Check if we have story and prompt data
+        if not process.story_text or not process.image_prompt:
+            return jsonify({'success': False, 'error': 'Story or visual prompt data missing'}), 400
+        
+        # Get participant IDs from the process
+        participant_ids = json.loads(process.participant_ids)
+        
+        # Get participants
+        participants = Participant.query.filter(Participant.id.in_(participant_ids)).all()
+        if not participants:
+            return jsonify({'success': False, 'error': 'No participants found for this process'}), 400
+        
+        # Regenerate image from existing story and prompt
+        story, visual_prompt, image_data = regenerate_image_from_story(
+            process.story_text, 
+            process.image_prompt, 
+            participants
+        )
+        
+        if not image_data:
+            # Set status to failed if image regeneration fails
+            process.status = 'failed'
+            db.session.commit()
+            return jsonify({'success': False, 'error': 'Failed to regenerate image'}), 500
+        
+        # Save image to GCS
+        filename = f"regenerated_story_{process_id}_{uuid.uuid4()}.png"
+        gcs_url = upload_to_gcs(image_data, filename, 'generated')
+        
+        if not gcs_url:
+            return jsonify({'success': False, 'error': 'Failed to upload image to storage'}), 500
+        
+        # Update process with new generated image URL
+        process.generated_image_url = gcs_url
+        process.status = 'completed'  # Set status to completed
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Image regenerated successfully',
+            'image_url': gcs_url,
+            'method': 'Regenerated from existing story and prompt'
+        })
+        
+    except Exception as e:
+        print(f"Error regenerating image for process {process_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/debug_image_urls')
+def debug_image_urls():
+    """
+    Veritabanındaki görsel URL'lerini kontrol eder.
+    """
+    if not session.get('admin_logged_in'):
+        return "Yetkisiz erişim", 401
+    
+    processes = GenerationProcess.query.all()
+    debug_info = []
+    
+    for process in processes:
+        info = {
+            'process_id': process.id,
+            'generated_image_url': process.generated_image_url,
+            'url_type': 'GCS' if process.generated_image_url and process.generated_image_url.startswith('http') else 'Local' if process.generated_image_url else 'None',
+            'created_at': process.created_at.isoformat() if process.created_at else None
+        }
+        
+        # URL varsa dosya varlığını kontrol et
+        if process.generated_image_url:
+            if process.generated_image_url.startswith('https://storage.googleapis.com/'):
+                # GCS dosyasını kontrol et
+                try:
+                    if process.generated_image_url.startswith(f"https://storage.googleapis.com/{GCS_BUCKET_NAME}/"):
+                        blob_path = process.generated_image_url.replace(f"https://storage.googleapis.com/{GCS_BUCKET_NAME}/", "")
+                    else:
+                        blob_path = process.generated_image_url
+                    
+                    blob = bucket.blob(blob_path)
+                    info['file_exists'] = blob.exists()
+                    if blob.exists():
+                        info['file_size'] = blob.size
+                except Exception as e:
+                    info['gcs_error'] = str(e)
+            else:
+                # Yerel dosyayı kontrol et
+                filename = process.generated_image_url.split('/')[-1] if '/' in process.generated_image_url else process.generated_image_url
+                local_path = os.path.join('local_generated', filename)
+                info['file_exists'] = os.path.exists(local_path)
+                if os.path.exists(local_path):
+                    info['file_size'] = os.path.getsize(local_path)
+        
+        debug_info.append(info)
+    
+    return jsonify(debug_info)
+
+@app.route('/send_whatsapp_notification/<int:process_id>', methods=['POST'])
+def send_whatsapp_notification(process_id):
+    """
+    Katılımcılara WhatsApp bildirimi gönderir.
+    """
+    if not session.get('admin_logged_in'):
+        return jsonify({'success': False, 'error': 'Yetkisiz erişim'}), 401
+    
+    try:
+        # Find the generation process
+        process = GenerationProcess.query.get(process_id)
+        if not process:
+            return jsonify({'success': False, 'error': 'Process not found'}), 404
+        
+        # Check if story is completed
+        if not process.generated_image_url:
+            return jsonify({'success': False, 'error': 'Story is not completed yet'}), 400
+        
+        # Get participant IDs from the process
+        participant_ids = json.loads(process.participant_ids)
+        
+        # Get participants
+        participants = Participant.query.filter(Participant.id.in_(participant_ids)).all()
+        if not participants:
+            return jsonify({'success': False, 'error': 'No participants found for this process'}), 400
+        
+        # Create share story URL
+        share_url = request.host_url.rstrip('/') + url_for('share_story', token=process.share_token)
+        
+        # Create WhatsApp message
+        participant_names = ', '.join([p.name for p in participants])
+        message = f"""🎉 TUMKAD 2040 Hikayeniz Hazır!
+
+Merhaba {participant_names},
+
+Birlikte oluşturduğumuz 2040 vizyon hikayeniz hazır! Hikayenizi görüntülemek için aşağıdaki linke tıklayabilirsiniz:
+
+{share_url}
+
+Bu hikaye, sizin vizyonlarınızın birleşiminden oluşturulmuş özel bir AI görseli içermektedir.
+
+TUMKAD Ekibi"""
+
+        # Create WhatsApp links for each participant
+        whatsapp_links = []
+        for participant in participants:
+            # Remove any non-numeric characters from phone number
+            clean_phone = ''.join(filter(str.isdigit, participant.phone))
+            # Add country code if not present (assuming Turkey +90)
+            if not clean_phone.startswith('90'):
+                clean_phone = '90' + clean_phone
+            # Create WhatsApp link
+            whatsapp_url = f"https://wa.me/{clean_phone}?text={message.replace(' ', '%20').replace('\n', '%0A')}"
+            whatsapp_links.append({
+                'name': participant.name,
+                'phone': participant.phone,
+                'whatsapp_url': whatsapp_url
+            })
+        
+        # Mark as notification sent
+        process.whatsapp_notification_sent = True
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'WhatsApp notification prepared successfully',
+            'whatsapp_links': whatsapp_links,
+            'share_url': share_url
+        })
+        
+    except Exception as e:
+        print(f"Error sending WhatsApp notification for process {process_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     with app.app_context():
@@ -581,6 +873,19 @@ if __name__ == '__main__':
         processes_without_token = GenerationProcess.query.filter_by(share_token=None).all()
         for process in processes_without_token:
             process.share_token = str(uuid.uuid4())
+        
+        # Mevcut hikayelere status ve whatsapp_notification_sent alanlarını ekle
+        processes_without_status = GenerationProcess.query.filter_by(status=None).all()
+        for process in processes_without_status:
+            # Eğer görsel varsa tamamlandı, yoksa başarısız olarak işaretle
+            if process.generated_image_url:
+                process.status = 'completed'
+            else:
+                process.status = 'failed'
+            # WhatsApp bildirimi henüz gönderilmemiş
+            if not hasattr(process, 'whatsapp_notification_sent') or process.whatsapp_notification_sent is None:
+                process.whatsapp_notification_sent = False
+        
         db.session.commit()
         
     app.run(debug=True, host='0.0.0.0', port=5000) 

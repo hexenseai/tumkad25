@@ -232,7 +232,7 @@ $RECYCLE.BIN/
 
 # Project specific
 # Google Cloud credentials
-api-project-*.json
+!api-project-*.json
 *.json
 !package.json
 !requirements.txt

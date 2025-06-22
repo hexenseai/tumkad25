@@ -9,6 +9,9 @@
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2><i class="fas fa-book"></i> Oluşturulan Hikayeler</h2>
                 <div>
+                    <button type="button" class="btn btn-info me-2" id="debugImageUrls">
+                        <i class="fas fa-bug"></i> Görsel URL'lerini Kontrol Et
+                    </button>
                     <a href="{{ url_for('generate_story') }}" class="btn btn-primary me-2">
                         <i class="fas fa-plus"></i> Yeni Hikaye Oluştur
                     </a>
@@ -28,12 +31,35 @@
                                 <i class="fas fa-users"></i> 
                                 Hikaye #{{ process.id }} - {{ process.created_at.strftime('%d.%m.%Y %H:%M') }}
                             </h5>
-                            <button type="button" class="btn btn-danger btn-sm delete-story-btn" 
-                                    data-process-id="{{ process.id }}"
-                                    data-bs-toggle="modal" 
-                                    data-bs-target="#deleteModal-{{ process.id }}">
-                                <i class="fas fa-trash"></i>
-                            </button>
+                            <div class="d-flex align-items-center">
+                                <!-- Status Badge -->
+                                <span class="badge me-2 
+                                    {% if process.status == 'completed' %}bg-success
+                                    {% elif process.status == 'failed' %}bg-danger
+                                    {% else %}bg-warning{% endif %}">
+                                    {% if process.status == 'completed' %}
+                                        <i class="fas fa-check"></i> Tamamlandı
+                                    {% elif process.status == 'failed' %}
+                                        <i class="fas fa-times"></i> Başarısız
+                                    {% else %}
+                                        <i class="fas fa-spinner"></i> İşleniyor
+                                    {% endif %}
+                                </span>
+                                
+                                <!-- WhatsApp Notification Badge -->
+                                {% if process.whatsapp_notification_sent %}
+                                <span class="badge bg-success me-2">
+                                    <i class="fab fa-whatsapp"></i> Bildirim Gönderildi
+                                </span>
+                                {% endif %}
+                                
+                                <button type="button" class="btn btn-danger btn-sm delete-story-btn" 
+                                        data-process-id="{{ process.id }}"
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#deleteModal-{{ process.id }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="card-body">
                             <h6>Katılımcılar:</h6>
@@ -90,26 +116,67 @@
                             {% if process.generated_image_url %}
                             <div class="mt-3">
                                 <h6>Oluşturulan Görsel:</h6>
-                                <img src="{{ process.generated_image_url }}" alt="Oluşturulan Görsel" class="img-fluid rounded">
+                                <!-- Debug bilgisi -->
+                                <small class="text-muted d-block mb-2">
+                                    <i class="fas fa-info-circle"></i> URL: {{ process.generated_image_url }}
+                                </small>
+                                
+                                <!-- Tüm görseller için /generated/ route'unu kullan -->
+                                {% set filename = process.generated_image_url.split('/')[-1] if '/' in process.generated_image_url else process.generated_image_url %}
+                                <img src="{{ url_for('generated_file', filename=filename) }}" 
+                                     alt="Oluşturulan Görsel" class="img-fluid rounded"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+                                     onload="this.nextElementSibling.style.display='none';">
+                                <div class="alert alert-warning" style="display: none;">
+                                    <i class="fas fa-exclamation-triangle"></i> Görsel yüklenemedi: {{ filename }}
+                                    <br><small>Orijinal URL: {{ process.generated_image_url }}</small>
+                                </div>
                                 <div class="mt-2">
                                     <a href="{{ url_for('share_story', token=process.share_token) }}" 
-                                       class="btn btn-primary btn-sm" target="_blank">
+                                       class="btn btn-primary btn-sm me-2" target="_blank">
                                         <i class="fas fa-share"></i> Paylaşım Sayfası
                                     </a>
+                                    <button type="button" class="btn btn-warning btn-sm regenerate-image-btn" 
+                                            data-process-id="{{ process.id }}">
+                                        <i class="fas fa-redo"></i> Görseli Yeniden Üret
+                                    </button>
+                                    
+                                    <!-- WhatsApp Notification Button -->
+                                    {% if process.status == 'completed' and not process.whatsapp_notification_sent %}
+                                    <button type="button" class="btn btn-success btn-sm whatsapp-notification-btn" 
+                                            data-process-id="{{ process.id }}">
+                                        <i class="fab fa-whatsapp"></i> WhatsApp Bildirimi Gönder
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                <div id="regenerate-status-{{ process.id }}" class="mt-2" style="display: none;">
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-spinner fa-spin"></i> Görsel yeniden üretiliyor...
+                                    </div>
                                 </div>
                             </div>
                             {% else %}
                             <div class="mt-3">
-                                <button type="button" class="btn btn-success generate-image-btn" data-process-id="{{ process.id }}">
+                                <button type="button" class="btn btn-success generate-image-btn me-2" data-process-id="{{ process.id }}">
                                     <i class="fas fa-image"></i> Görsel Üret (Character Reference)
+                                </button>
+                                <button type="button" class="btn btn-info regenerate-image-btn" data-process-id="{{ process.id }}">
+                                    <i class="fas fa-redo"></i> Görseli Yeniden Üret
                                 </button>
                                 <div id="status-{{ process.id }}" class="mt-2" style="display: none;">
                                     <div class="alert alert-info">
                                         <i class="fas fa-spinner fa-spin"></i> Görsel üretiliyor...
                                     </div>
                                 </div>
-                                <small class="text-muted">
-                                    <i class="fas fa-info-circle"></i> Katılımcıların fotoğrafları Character Reference olarak kullanılacak
+                                <div id="regenerate-status-{{ process.id }}" class="mt-2" style="display: none;">
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-spinner fa-spin"></i> Görsel yeniden üretiliyor...
+                                    </div>
+                                </div>
+                                <small class="text-muted d-block mt-2">
+                                    <i class="fas fa-info-circle"></i> 
+                                    <strong>Görsel Üret:</strong> Katılımcıların fotoğrafları Character Reference olarak kullanılacak<br>
+                                    <strong>Yeniden Üret:</strong> Mevcut hikaye ve prompt'tan tekrar görsel oluşturulacak
                                 </small>
                             </div>
                             {% endif %}
@@ -155,6 +222,43 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Debug butonu için event listener
+    document.getElementById('debugImageUrls').addEventListener('click', function() {
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Kontrol ediliyor...';
+        
+        fetch('/debug_image_urls')
+            .then(response => response.json())
+            .then(data => {
+                console.log('Image URL Debug Info:', data);
+                
+                let debugText = 'Görsel URL Debug Bilgileri:\n\n';
+                data.forEach(item => {
+                    debugText += `Hikaye #${item.process_id}:\n`;
+                    debugText += `  URL: ${item.generated_image_url || 'Yok'}\n`;
+                    debugText += `  Tip: ${item.url_type}\n`;
+                    debugText += `  Dosya Var: ${item.file_exists ? 'Evet' : 'Hayır'}\n`;
+                    if (item.file_size) {
+                        debugText += `  Boyut: ${item.file_size} bytes\n`;
+                    }
+                    if (item.gcs_error) {
+                        debugText += `  GCS Hatası: ${item.gcs_error}\n`;
+                    }
+                    debugText += '\n';
+                });
+                
+                alert(debugText);
+            })
+            .catch(error => {
+                console.error('Debug error:', error);
+                alert('Debug bilgisi alınırken hata oluştu.');
+            })
+            .finally(() => {
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-bug"></i> Görsel URL\'lerini Kontrol Et';
+            });
+    });
+
     // Detayları Göster/Gizle butonları için ikon değişimi
     document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(button => {
         button.addEventListener('click', function() {
@@ -215,6 +319,52 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Görsel yeniden üretme butonları için event listener
+    document.querySelectorAll('.regenerate-image-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const processId = this.getAttribute('data-process-id');
+            const statusDiv = document.getElementById(`regenerate-status-${processId}`);
+            
+            // Butonu devre dışı bırak
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Yeniden Üretiliyor...';
+            statusDiv.style.display = 'block';
+            
+            // AJAX isteği gönder
+            fetch(`/regenerate_image/${processId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Başarılı - hangi yöntemin kullanıldığını göster
+                    const method = data.method || 'Bilinmeyen';
+                    alert(`Görsel başarıyla yeniden üretildi! (${method})`);
+                    // Sayfayı yenile
+                    location.reload();
+                } else {
+                    // Hata
+                    alert('Görsel yeniden üretilirken hata oluştu: ' + data.error);
+                    // Butonu geri aktif et
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-redo"></i> Görseli Yeniden Üret';
+                    statusDiv.style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Görsel yeniden üretilirken bir hata oluştu.');
+                // Butonu geri aktif et
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-redo"></i> Görseli Yeniden Üret';
+                statusDiv.style.display = 'none';
+            });
+        });
+    });
+
     // Hikaye silme işlemi için event listener
     document.querySelectorAll('.confirm-delete-btn').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -251,6 +401,57 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Butonu geri aktif et
                 this.disabled = false;
                 this.innerHTML = '<i class="fas fa-trash"></i> Evet, Sil';
+            });
+        });
+    });
+
+    // WhatsApp bildirimi gönderme butonları için event listener
+    document.querySelectorAll('.whatsapp-notification-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const processId = this.getAttribute('data-process-id');
+            
+            // Butonu devre dışı bırak
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Hazırlanıyor...';
+            
+            // AJAX isteği gönder
+            fetch(`/send_whatsapp_notification/${processId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Başarılı - WhatsApp linklerini göster
+                    let message = 'WhatsApp bildirimi hazırlandı!\n\n';
+                    message += 'Aşağıdaki linklere tıklayarak katılımcılara mesaj gönderebilirsiniz:\n\n';
+                    
+                    data.whatsapp_links.forEach(link => {
+                        message += `${link.name} (${link.phone}):\n${link.whatsapp_url}\n\n`;
+                    });
+                    
+                    message += `\nPaylaşım URL'si: ${data.share_url}`;
+                    
+                    alert(message);
+                    
+                    // Sayfayı yenile
+                    location.reload();
+                } else {
+                    // Hata
+                    alert('WhatsApp bildirimi hazırlanırken hata oluştu: ' + data.error);
+                    // Butonu geri aktif et
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fab fa-whatsapp"></i> WhatsApp Bildirimi Gönder';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('WhatsApp bildirimi hazırlanırken bir hata oluştu.');
+                // Butonu geri aktif et
+                this.disabled = false;
+                this.innerHTML = '<i class="fab fa-whatsapp"></i> WhatsApp Bildirimi Gönder';
             });
         });
     });

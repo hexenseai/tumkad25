@@ -46,7 +46,8 @@
                 
                 {% if process.generated_image_url %}
                 <div class="mt-3">
-                    <img src="{{ process.generated_image_url }}" alt="Oluşturulan Görsel" class="img-fluid mt-2">
+                    {% set filename = process.generated_image_url.split('/')[-1] if '/' in process.generated_image_url else process.generated_image_url %}
+                    <img src="{{ url_for('generated_file', filename=filename) }}" alt="Oluşturulan Görsel" class="img-fluid mt-2">
                 </div>
                 {% endif %}
                 {% endif %}

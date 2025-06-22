@@ -1,639 +1,916 @@
+# Generation module for collaborative story creation
 import requests
 import os
 import base64
 import time
+import json
 from utils import apply_template_to_image_data
-from vertexai.preview.generative_models import GenerativeModel
+from gcs import download_from_gcs
 
-LUMALABS_API_KEY = os.environ.get('LUMALABS_API_KEY')
-LUMALABS_API_URL = "https://api.lumalabs.ai/dream-machine/v1/generations/image"
+# OpenAI API konfigürasyonu - basit requests kullanarak
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 
-
-def generate_image_with_lumalabs(prompt, reference_images):
+def call_openai_api(messages, model="gpt-4o", max_tokens=500, temperature=0.8):
     """
-    Lumalabs.ai API kullanarak Character Reference ile görsel üretir.
-    Katılımcıların fotoğraflarını GCS URL'leri olarak kullanır.
-    Asenkron işlem - polling ile sonucu bekler.
-    
-    Args:
-        prompt: Görsel üretim prompt'u
-        reference_images: Referans görseller listesi
-        callback_url: Opsiyonel webhook URL'si
+    OpenAI API'yi doğrudan requests ile çağırır
     """
     try:
-        if not LUMALABS_API_KEY or LUMALABS_API_KEY == 'your-lumalabs-api-key-here':
-            print("Lumalabs.ai API key not configured")
+        if not OPENAI_API_KEY:
             return None
-        
-        # Character Reference için payload hazırla
-        character_ref = {}
-        
-        # Her katılımcı için ayrı identity oluştur
-        for i, ref_img in enumerate(reference_images):
-            if isinstance(ref_img, dict) and 'image_url' in ref_img:
-                # Signed URL'yi kullan (Lumalabs.ai için)
-                image_url = ref_img['image_url']
-                print(f"Using signed URL for identity{i}: {image_url[:50]}...")
-                character_ref[f"identity{i}"] = {
-                    "images": [image_url]
-                }
-            elif isinstance(ref_img, str) and os.path.exists(ref_img):
-                # Eski format için dosyayı base64'e çevir
-                with open(ref_img, 'rb') as f:
-                    img_base64 = base64.b64encode(f.read()).decode('utf-8')
-                    data_url = f"data:image/png;base64,{img_base64}"
-                    character_ref[f"identity{i}"] = {
-                        "images": [data_url]
-                    }
-        
-        if not character_ref:
-            print("No valid reference images found")
-            return None
-        
-        # API isteği için payload hazırla
-        payload = {
-            "prompt": prompt,
-            "model": "photon-1",
-            "aspect_ratio": "1:1",
-            "format": "png"
-        }
-        
-        # Character Reference varsa ekle
-        if character_ref:
-            payload["character_ref"] = character_ref
-        
-        
+            
         headers = {
-            "Authorization": f"Bearer {LUMALABS_API_KEY}",
-            "Content-Type": "application/json",
-            "Accept": "application/json"
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json"
         }
         
-        print(f"Starting Lumalabs.ai generation with prompt: {prompt[:100]}...")
+        data = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature
+        }
         
-        # API isteği gönder
-        response = requests.post(LUMALABS_API_URL, json=payload, headers=headers)
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers=headers,
+            json=data,
+            timeout=30
+        )
         
-        if response.status_code == 201:
-            result = response.json()
-            print(f"Generation started: {result}")
-            
-            # Generation ID'sini al
-            if 'id' in result:
-                generation_id = result['id']
-                print(f"Generation ID: {generation_id}")
-                
-            
-                # Polling ile sonucu bekle
-                max_attempts = 60  # 5 dakika (5 saniye aralıklarla)
-                for attempt in range(max_attempts):
-                    print(f"Checking generation status... (attempt {attempt + 1}/{max_attempts})")
-                    
-                    # Status kontrol et
-                    status_response = requests.get(
-                        f"https://api.lumalabs.ai/dream-machine/v1/generations/{generation_id}",
-                        headers=headers
-                    )
-                    
-                    if status_response.status_code == 200:
-                        status_result = status_response.json()
-                        print(status_result)
-                        status = status_result.get('state', 'unknown')
-                        print(f"Status: {status}")
-                        
-                        if status == 'completed':
-                            print(status_result)
-                            # Görsel hazır, URL'yi al
-                            if 'assets' in status_result and status_result['assets'] and status_result['assets'].get('image'):
-                                image_url = status_result['assets']['image']
-                                print(f"Image ready: {image_url}")
-                                
-                                # Görseli indir
-                                img_response = requests.get(image_url)
-                                if img_response.status_code == 200:
-                                    # Görseli bytes olarak al
-                                    image_data = img_response.content
-                                    
-                                    # Şablonu uygula
-                                    final_image_data = apply_template_to_image_data(image_data)
-                                    return final_image_data
-                                else:
-                                    print(f"Failed to download image: {img_response.status_code}")
-                                    return None
-                            else:
-                                print("No image data in completed response")
-                                print(f"Assets: {status_result.get('assets')}")
-                                return None
-                                
-                        elif status == 'failed':
-                            print(f"Generation failed: {status_result}")
-                            failure_reason = status_result.get('failure_reason', 'Unknown error')
-                            print(f"Failure reason: {failure_reason}")
-                            return None
-                            
-                        elif status in ['queued', 'processing', 'dreaming']:
-                            # Devam et, bekle
-                            time.sleep(5)  # 5 saniye bekle
-                            continue
-                            
-                        else:
-                            print(f"Unknown status: {status}")
-                            print(f"Full response: {status_result}")
-                            return None
-                    else:
-                        print(f"Status check failed: {status_response.status_code}")
-                        return None
-                
-                print("Generation timeout - max attempts reached")
-                return None
-            else:
-                print("No generation ID in response")
-                return None
-                    
+        if response.status_code == 200:
+            return response.json()["choices"][0]["message"]["content"].strip()
         else:
-            print(f"Lumalabs.ai API error: {response.status_code} - {response.text}")
+            print(f"OpenAI API error: {response.status_code} - {response.text}")
             return None
             
     except Exception as e:
-        print(f"Lumalabs.ai generation error: {e}")
+        print(f"OpenAI API call error: {e}")
         return None
 
-
-
-def extract_keywords_and_themes(text):
+def call_gpt4_vision_api(messages, model="gpt-4o", max_tokens=1000, temperature=0.7):
     """
-    Metinden anahtar kelimeleri ve temaları çıkarır.
+    GPT-4 Vision API'yi doğrudan requests ile çağırır
     """
     try:
-        # Google Cloud credentials kontrol et
-        if not os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
-            return []
+        if not OPENAI_API_KEY:
+            return None
+            
+        headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json"
+        }
         
-        # Vertex AI'yi başlat
-        import vertexai
-        vertexai.init(
-            project=os.environ.get('GOOGLE_CLOUD_PROJECT'),
-            location=os.environ.get('GOOGLE_CLOUD_LOCATION', 'us-central1')
+        data = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature
+        }
+        
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers=headers,
+            json=data,
+            timeout=60
         )
         
-        # Gemini 2.0 Flash modelini kullan
-        model = GenerativeModel(model_name="gemini-2.0-flash-001")
-        
-        prompt = f"""
-        Bu metinden teknoloji ve inovasyon ile ilgili anahtar kelimeleri ve temaları çıkar:
-        
-        Metin: {text}
-        
-        Çıkarılacak kategoriler:
-        1. Teknoloji alanları (AI, blockchain, IoT, vb.)
-        2. İnovasyon türleri (disruptive, incremental, vb.)
-        3. Sektörler (healthcare, finance, education, vb.)
-        4. Gelecek vizyonu temaları (sustainability, efficiency, vb.)
-        5. Çalışma stilleri (collaborative, analytical, creative, vb.)
-        
-        Her kategori için en önemli 3-5 kelimeyi virgülle ayırarak listele.
-        Sadece kelimeleri ver, açıklama yapma.
-        """
-        
-        response = model.generate_content(prompt)
-        keywords = [kw.strip() for kw in response.text.split(',') if kw.strip()]
-        return keywords
-        
+        if response.status_code == 200:
+            return response.json()["choices"][0]["message"]["content"].strip()
+        else:
+            print(f"GPT-4 Vision API error: {response.status_code} - {response.text}")
+            return None
+            
     except Exception as e:
-        print(f"Keyword extraction error: {e}")
-        return []
+        print(f"GPT-4 Vision API call error: {e}")
+        return None
 
-def analyze_participant_personality(participant):
+def generate_futuristic_selfie_with_image_edit(participants, story):
     """
-    Katılımcının kişilik profilini ve anahtar kelimelerini analiz eder.
+    Bu fonksiyon artık kullanılmıyor. Sadece grup selfie destekleniyor.
+    En az 2 katılımcı gerekli.
+    """
+    print("Single participant selfie is deprecated. Using group selfie instead.")
+    return generate_group_futuristic_selfie_with_image_edit(participants, story)
+
+def generate_individual_vision_story(participant):
+    """
+    Adım 1: Her katılımcı için ayrı ayrı gelecek vizyonu hikayesi oluşturur.
     """
     try:
-        # Google Cloud credentials kontrol et
-        if not os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
-            print("Google Cloud credentials not set")
-            return None, []
+        if not OPENAI_API_KEY:
+            print("OpenAI API key not configured")
+            return f"{participant.name} teknoloji alanında uzmanlaşmış bir kadın mühendis olarak 2040 yılında {participant.future_impact} vizyonunu gerçekleştirmeyi planlıyor."
         
-        # Vertex AI'yi başlat
-        import vertexai
-        vertexai.init(
-            project=os.environ.get('GOOGLE_CLOUD_PROJECT'),
-            location=os.environ.get('GOOGLE_CLOUD_LOCATION', 'us-central1')
-        )
-        
-        # Gemini 2.0 Flash modelini kullan
-        model = GenerativeModel(model_name="gemini-2.0-flash-001")
-        
-        # Katılımcı bilgilerini analiz et
-        participant_info = f"""
-        İsim: {participant.name}
-        Meslek/Uzmanlık: {participant.profession}
-        Sektör: {participant.sector}
-        Teknik İlgi Alanı: {participant.technical_interest}
-        Gelecek Hedefi (2040): {participant.future_impact}
-        İdeal Çalışma Ortamı: {participant.work_environment}
-        """
-        
-        # Anahtar kelimeleri çıkar
-        all_text = f"{participant.profession} {participant.sector} {participant.technical_interest} {participant.future_impact} {participant.work_environment}"
-        keywords = extract_keywords_and_themes(all_text)
-        
-        # Kişilik analizi prompt'u
         prompt = f"""
-        Bu kişinin bilgilerini analiz ederek, 2040 yılında teknoloji dünyasında nasıl bir rol oynayabileceğini tahmin et.
+        Bu kişinin bilgilerini analiz ederek, 2035 yılında gerçekleştirmek istediği gelecek vizyonunun tanımlamasını oluştur. Neyi yapmak istediğini ve nasıl bir dönüşüm başlatmak istediğini *kişi bilgilerini* kullanarak detaylandır.
         
         Kişi Bilgileri:
-        {participant_info}
+        - İsim: {participant.name}
+        - Meslek/Uzmanlık: {participant.profession}
+        - Sektör: {participant.sector}
+        - Teknik İlgi Alanı: {participant.technical_interest}
+        - Gelecek Vizyonu (2035): {participant.future_impact}
+        - İdeal Çalışma Ortamı: {participant.work_environment}
         
-        Analiz etmen gereken noktalar:
-        1. Bu kişinin güçlü yanları neler olabilir?
-        2. Hangi teknoloji alanlarında uzmanlaşmış olabilir?
-        3. Liderlik tarzı nasıl olabilir? (vizyoner, analitik, yaratıcı, vs.)
-        4. Takım içindeki rolü ne olabilir? (lider, uzman, koordinatör, vs.)
-        5. 2040'te hangi teknoloji trendlerine odaklanmış olabilir?
-        6. İnovasyon yaklaşımı nasıl olabilir? (disruptive, incremental, vb.)
+        Görev:
+        1. Bu kişinin verdiği bilgileri analiz et.
+        2. 2035 yılında bu kişinin nasıl bir vizyon ile nasıl bir dönüşüm başlatmak istediğini anla.
+        3. 1 paragraf uzunluğunda özet bir şekilde yaz.
+        4. Anlatım gerçekçi ama vizyoner olmalı
+        5. Kişinin güçlü yanlarını vizyonu güçlendirecek şekilde kullan.
+        6. Teknoloji ile birlikte inovasyon temasını işle
+        7. Türkçe yaz
         
-        Analizi Türkçe olarak, 2-3 cümle halinde özetle.
+        Gelecek vizyonu metni, bu kişinin 2035'te nasıl bir teknoloji ile inovatif dönüşüm hayal ettiğini ve bunun parçası olabileceğini(uzman ya da öncüsü) göstermeli.
         """
         
-        response = model.generate_content(prompt)
-        personality = response.text
+        messages = [
+            {"role": "system", "content": "Sen katılımcıların gelecek vizyonlarını daha kapsamlı ve düzgün hale getiren bir AI asistanısın. Her kişinin potansiyelini analiz ederek 2035 yılında gerçekleştirmek istediği vizyonu daha iyi şekilde tanımla."},
+            {"role": "user", "content": prompt}
+        ]
         
-        return personality, keywords
+        story = call_openai_api(messages, max_tokens=500, temperature=0.8)
+        return story if story else f"{participant.name} teknoloji alanında uzmanlaşmış bir kadın mühendis olarak 2040 yılında {participant.future_impact} vizyonunu gerçekleştirmeyi planlıyor."
         
     except Exception as e:
-        print(f"Personality analysis error: {e}")
-        return f"{participant.name} teknoloji alanında uzmanlaşmış bir profesyonel.", []
+        print(f"Individual vision story generation error: {e}")
+        return f"{participant.name} teknoloji alanında uzmanlaşmış bir profesyonel olarak 2040 yılında {participant.future_impact} hedefini gerçekleştirmeyi planlıyor."
 
-def find_common_themes(participants_keywords):
+def create_collaborative_future_story(individual_stories):
     """
-    Katılımcıların anahtar kelimelerinden ortak temaları ve gelecek vizyonlarını bulur.
+    Adım 2: Katılımcıların bireysel hikayelerini birleştirerek ortak gelecek vizyonu hikayesi oluşturur.
     """
     try:
-        # Google Cloud credentials kontrol et
-        if not os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
-            return [], ""
+        if not OPENAI_API_KEY:
+            print("OpenAI API key not configured")
+            return "Katılımcılar birlikte geleceği şekillendiren bir teknoloji projesi geliştirdi."
         
-        # Vertex AI'yi başlat
-        import vertexai
-        vertexai.init(
-            project=os.environ.get('GOOGLE_CLOUD_PROJECT'),
-            location=os.environ.get('GOOGLE_CLOUD_LOCATION', 'us-central1')
-        )
-        
-        # Gemini 2.0 Flash modelini kullan
-        model = GenerativeModel(model_name="gemini-2.0-flash-001")
-        
-        # Tüm anahtar kelimeleri birleştir
-        all_keywords = []
-        for name, keywords in participants_keywords:
-            all_keywords.extend(keywords)
-        
-        keywords_text = ", ".join(all_keywords)
+        stories_text = "\n\n".join([f"{name}:\n{story}" for name, story in individual_stories])
         
         prompt = f"""
-        Bu anahtar kelimelerden ortak temaları ve gelecek vizyonlarını bul:
+        Bu katılımcıların bireysel gelecek vizyonlarını analiz ederek, 2035 yılında birlikte gerçekleştirebilecekleri ortak bir gelecek vizyonu hikayesi oluştur.
         
-        Anahtar kelimeler: {keywords_text}
+        Bireysel Vizyonlar:
+        {stories_text}
         
-        Katılımcıların ortak ilgi alanları:
-        {chr(10).join([f"- {name}: {', '.join(keywords)}" for name, keywords in participants_keywords])}
+        Görev:
+        1. Her katılımcının vizyonunu analiz et
+        2. Bu vizyonların nasıl birleşebileceğini ve birbirini nasıl tamamlayabileceğini bul
+        3. Ortak bir gelecek vizyonu oluştur - kişisel detaylardan ziyade vizyonların birleşimi önemli
+        4. 2035 yılında geçen, dünyayı değiştiren bir teknoloji destekli inovasyon projesi hikayesi yaz.
+        5. Hikaye 1 paragraf uzunluğunda olmalı.
+        6. Türkçe yaz
+        7. Hikaye şu yapıda olmalı:
+           - Hedef: Teknolojik zorluklar ve vizyonların nasıl bir araya geldiği.
+           - Proje: Başarı hikayesinin nasıl bir proje ile gerçekleştirileceği.
+           - Sonuç: Proje sonucunda neyi nasıl yaparak dünyayı değiştirir.
         
-        Ortak temaları ve bu temaların 2040 yılında nasıl bir inovasyon projesine dönüşebileceğini analiz et.
-        Özellikle katılımcıların gelecek vizyonlarının nasıl birleşebileceğine odaklan.
-        
-        Çıktı formatı:
-        TEMALAR: [ortak temalar virgülle ayrılmış]
-        PROJE FİKRİ: [bu temalardan ve gelecek vizyonlarından yola çıkarak 2040'te geliştirilebilecek proje fikri - katılımcıların vizyonlarının birleşmesini vurgula]
+        ÖNEMLİ: Kişisel detaylar ve kişilerin rolünden ziyade vizyonların birleşiminden gelecek için daha iyi bir vizyon oluştur. 
+        Hikaye, bu vizyonların nasıl birleşerek daha güçlü bir gelecek vizyonu oluşturduğunu göstermeli.
         """
         
-        response = model.generate_content(prompt)
-        response_text = response.text
+        messages = [
+            {"role": "system", "content": "Sen gelecek vizyonlarını birleştiren bir AI asistanısın. Farklı vizyonları analiz ederek ortak bir gelecek hikayesi oluşturursun."},
+            {"role": "user", "content": prompt}
+        ]
         
-        # Yanıtı parçala
-        themes = []
-        project_idea = ""
-        
-        if "TEMALAR:" in response_text and "PROJE FİKRİ:" in response_text:
-            parts = response_text.split("PROJE FİKRİ:")
-            themes_part = parts[0].replace("TEMALAR:", "").strip()
-            themes = [t.strip() for t in themes_part.split(',') if t.strip()]
-            project_idea = parts[1].strip()
-        
-        return themes, project_idea
+        story = call_openai_api(messages, max_tokens=800, temperature=0.8)
+        return story if story else "Katılımcılar birlikte geleceği şekillendiren bir teknoloji projesi geliştirdi."
         
     except Exception as e:
-        print(f"Theme analysis error: {e}")
-        return [], ""
+        print(f"Collaborative story generation error: {e}")
+        return "Katılımcılar birlikte geleceği şekillendiren bir teknoloji projesi geliştirdi."
 
-def generate_collaborative_story(participants):
+def create_story_visual_prompt(story):
     """
-    Katılımcıların gelecek vizyonlarını birleştirerek 2040'te birlikte gerçekleştirecekleri proje hikayesini oluşturur.
-    Hikayenin içeriği ve vizyonu öncelikli, kişilerin yüzleri ikincil önemde.
+    Adım 3: Hikayeyi görsel bir karede anlatabilecek photorealistic gelecek vizyonunu iyi betimleyen prompt oluşturur.
     """
     try:
-        # Google Cloud credentials kontrol et
-        if not os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
-            print("Google Cloud credentials not set")
-            return None, None
+        if not OPENAI_API_KEY:
+            print("OpenAI API key not configured")
+            return "Photorealistic futuristic technology workspace in 2035, innovative project visualization, holographic displays, advanced equipment, professional lighting"
         
-        # Vertex AI'yi başlat
-        import vertexai
-        vertexai.init(
-            project=os.environ.get('GOOGLE_CLOUD_PROJECT'),
-            location=os.environ.get('GOOGLE_CLOUD_LOCATION', 'us-central1')
-        )
-        
-        # Gemini 2.0 Flash modelini kullan
-        model = GenerativeModel(model_name="gemini-2.0-flash-001")
-        
-        # Katılımcıların gelecek vizyonlarını analiz et
-        future_visions = []
-        participants_info = []
-        participants_keywords = []
-        
-        for p in participants:
-            personality, keywords = analyze_participant_personality(p)
-            participants_keywords.append((p.name, keywords))
-            
-            # Gelecek vizyonunu detaylandır
-            future_visions.append(f"""
-            {p.name} - Gelecek Vizyonu:
-            - 2040 Hedefi: {p.future_impact}
-            - Teknik İlgi: {p.technical_interest}
-            - Sektör: {p.sector}
-            - Meslek: {p.profession}
-            - İdeal Çalışma Ortamı: {p.work_environment}
-            - Kişilik Analizi: {personality}
-            - Anahtar Kelimeler: {', '.join(keywords)}
-            """)
-            
-            participants_info.append(f"""
-            {p.name}:
-            - Meslek: {p.profession}
-            - Sektör: {p.sector}
-            - Teknik İlgi: {p.technical_interest}
-            - 2040 Hedefi: {p.future_impact}
-            - Kişilik Analizi: {personality}
-            - Anahtar Kelimeler: {', '.join(keywords)}
-            """)
-        
-        # Ortak temaları bul
-        common_themes, project_idea = find_common_themes(participants_keywords)
-        
-        # Görsel referansları oluştur
-        visual_references = generate_visual_references(common_themes, project_idea)
-        
-        future_visions_text = "\n".join(future_visions)
-        participants_text = "\n".join(participants_info)
-        names = ', '.join([p.name for p in participants])
-        themes_text = ', '.join(common_themes) if common_themes else "teknoloji, inovasyon, gelecek"
-        
-        # Hikaye oluşturma prompt'u - gelecek vizyonlarını birleştirmeye odaklı
         prompt = f"""
-        Bu {len(participants)} kişinin gelecek vizyonlarını birleştirerek 2040 yılında birlikte gerçekleştirecekleri çığır açan bir teknoloji projesi hikayesi yaz.
+        Bu hikayeden yola çıkarak, hikayeyi görsel bir karede anlatabilecek photorealistic gelecek vizyonunu iyi betimleyen bir prompt oluştur.
         
-        Katılımcıların Gelecek Vizyonları:
-        {future_visions_text}
+        Hikaye:
+        {story}
         
-        Ortak Temalar: {themes_text}
-        Proje Fikri: {project_idea}
-        Görsel Referanslar: {', '.join(visual_references) if visual_references else 'futuristik ortam'}
+        Görsel Prompt Gereksinimleri:
+        - 2:3 oranında (portrait format)
+        - Photorealistic, yüksek kaliteli.
+        - Kişi isimlerine yer verme.
+        - Gerçekçi yapıda, ilüstratif görsel oluştur.
+        - 2035 yılı futuristik teknoloji ortamı
+        - Hikayenin içeriğini ve vizyonunu illustre eden görsel elementler
+        - Teknoloji ile toplumsal ilerleme ve yenilik teması
+        - Projenin dünya üzerindeki etkisini gösteren görsel ipuçları.
+        - Dramatik aydınlatma ve kompozisyon.
+        - İnovatif ve çığır açan teknoloji atmosferi.
+        - Görselin önemli detayları üst bölümde görselin 2/3 kısmını kaplayacak şekilde olsun.
+        - Kişisel detaylarla çok ilgilenme, odak hikayenin vizyonu ve yaşam ile topluma etkisi olmalı.
         
-        Hikaye gereksinimleri:
-        1. 2040 yılında geçmeli
-        2. Her katılımcının gelecek vizyonunu ve hedefini birleştiren bir proje olmalı
-        3. Dünyayı değiştiren, çığır açan bir teknoloji olmalı
-        4. Her kişinin vizyonunun projeye nasıl katkı sağladığı net olmalı
-        5. Gerçekçi ama vizyoner olmalı
-        6. İnovatif düşünce ve görsel referansları destekleyecek içerik barındırmalı
-        7. 4-5 paragraf uzunluğunda olmalı
-        8. Türkçe yazılmalı
-        9. Hikaye şu yapıda olmalı:
-           - Giriş: Vizyonların birleşmesi ve ekip oluşumu
-           - Gelişme: Teknolojik zorluklar ve vizyonların çözüme katkısı
-           - Doruk: Başarı anı ve dünya üzerindeki etki
-           - Sonuç: Gelecek vizyonu ve sürdürülebilir etki
-        
-        Hikayeyi yazdıktan sonra, bu hikayeden yola çıkarak AI görsel üretimi için İngilizce bir prompt da oluştur.
-        Görsel, hikayenin içeriğini ve projenin vizyonunu illustre etmeli, kişilerin yüzleri ikincil önemde olmalı.
-        
-        Görsel prompt gereksinimleri:
-        - 1080x1080 kare format
-        - Fotogerçekçi, yüksek kaliteli
-        - 2040 yılı futuristik teknoloji ortamı
-        - Hikayenin içeriğini ve projenin vizyonunu illustre eden görsel elementler
-        - Teknolojik ilerleme ve yenilik teması
-        - Ortak temaları görsel olarak yansıtmalı
-        - Projenin dünya üzerindeki etkisini gösteren görsel ipuçları
-        - Kişilerin yüzleri net olmayabilir, odak projenin kendisi olmalı
-        - Dramatik aydınlatma ve kompozisyon
-        - İnovatif ve çığır açan teknoloji atmosferi
-        
-        Yanıtı şu formatta ver:
-        HİKAYE:
-        [hikaye metni]
-        
-        GÖRSEL PROMPT:
-        [İngilizce görsel prompt - hikayenin içeriğini illustre eden, 1080x1080, fotogerçekçi, futuristik]
+        Prompt'u İngilizce olarak oluştur ve sadece görsel betimlemeleri içersin.
         """
         
-        response = model.generate_content(prompt)
-        response_text = response.text
+        messages = [
+            {"role": "system", "content": "Sen görsel prompt oluşturan bir AI asistanısın. Hikayeleri analiz ederek görsel betimlemeler oluşturursun."},
+            {"role": "user", "content": prompt}
+        ]
         
-        # Yanıtı parçala
-        if "HİKAYE:" in response_text and "GÖRSEL PROMPT:" in response_text:
-            parts = response_text.split("GÖRSEL PROMPT:")
-            story_text = parts[0].replace("HİKAYE:", "").strip()
-            image_prompt = parts[1].strip()
+        visual_prompt = call_openai_api(messages, max_tokens=300, temperature=0.7)
+        return visual_prompt if visual_prompt else "Photorealistic futuristic technology workspace in 2040, innovative project visualization, holographic displays, advanced equipment, professional lighting"
+        
+    except Exception as e:
+        print(f"Story visual prompt creation error: {e}")
+        return "Photorealistic futuristic technology workspace in 2040, innovative project visualization, holographic displays, advanced equipment, professional lighting"
+
+def generate_image_with_dalle(prompt, aspect_ratio="1:1"):
+    """
+    OpenAI DALL-E API kullanarak görsel üretir.
+    """
+    try:
+        if not OPENAI_API_KEY:
+            print("OpenAI API key not configured")
+            return None
+        
+        headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "model": "dall-e-3",
+            "prompt": prompt,
+            "size": "1024x1024" if aspect_ratio == "1:1" else "1024x1792" if aspect_ratio == "2:3" else "1024x1024",
+            "quality": "hd",
+            "n": 1
+        }
+        
+        response = requests.post(
+            "https://api.openai.com/v1/images/generations",
+            headers=headers,
+            json=data,
+            timeout=60
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            image_url = result["data"][0]["url"]
+            
+            # Görseli indir
+            img_response = requests.get(image_url, timeout=30)
+            if img_response.status_code == 200:
+                return img_response.content
+            else:
+                print(f"Failed to download image: {img_response.status_code}")
+                return None
         else:
-            # Fallback
-            story_text = f"2040 yılında {names} birlikte yenilikçi bir teknoloji projesi geliştirdi. Bu ekip, farklı gelecek vizyonlarını birleştirerek geleceği şekillendiren bir çözüm üretti."
-            image_prompt = f"Photorealistic 1080x1080 futuristic workspace in 2040, innovative technology project visualization, holographic displays, advanced equipment, professional lighting, {themes_text}, collaborative innovation environment, visionary technology impact"
-        
-        # Hikayeyi inovasyon elementleriyle zenginleştir
-        enhanced_story = enhance_story_with_innovation_elements(story_text, common_themes, visual_references)
-        
-        # İnovatif görsel prompt oluştur - hikayenin içeriğini illustre eden
-        innovative_image_prompt = create_vision_focused_image_prompt(enhanced_story, common_themes, visual_references, participants)
-        
-        return enhanced_story, innovative_image_prompt
-        
+            print(f"DALL-E API error: {response.status_code} - {response.text}")
+            return None
+            
     except Exception as e:
-        print(f"Story generation error: {e}")
-        names = ', '.join([p.name for p in participants])
-        fallback_story = f"2040 yılında {names} birlikte yenilikçi bir teknoloji projesi geliştirdi. Bu ekip, farklı gelecek vizyonlarını birleştirerek geleceği şekillendiren bir çözüm üretti."
-        fallback_prompt = f"Photorealistic 1080x1080 futuristic workspace in 2040, {names} (all women) collaborating on an innovative technology project, holographic displays, advanced equipment, professional lighting, all female professionals"
-        return fallback_story, fallback_prompt
+        print(f"DALL-E image generation error: {e}")
+        return None
 
-def generate_visual_references(themes, project_idea):
+def generate_image_with_imagen(prompt, aspect_ratio="1:1"):
     """
-    Temalar ve proje fikrinden yola çıkarak görsel referansları oluşturur.
+    Google Vertex AI Imagen 4 Preview API kullanarak görsel üretir.
+    vertexai paketi kullanır.
     """
     try:
-        # Google Cloud credentials kontrol et
-        if not os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
-            return []
-        
-        # Vertex AI'yi başlat
         import vertexai
+        from vertexai.generative_models import ImageGenerationModel
+        
+        # Google Cloud Project ID al
+        GOOGLE_CLOUD_PROJECT = os.environ.get('GOOGLE_CLOUD_PROJECT')
+        if not GOOGLE_CLOUD_PROJECT:
+            print("Google Cloud Project ID not configured")
+            return None
+        
+        # Vertex AI'yi initialize et
         vertexai.init(
-            project=os.environ.get('GOOGLE_CLOUD_PROJECT'),
-            location=os.environ.get('GOOGLE_CLOUD_LOCATION', 'us-central1')
+            project=GOOGLE_CLOUD_PROJECT,
+            location="us-central1"
         )
         
-        # Gemini 2.0 Flash modelini kullan
-        model = GenerativeModel(model_name="gemini-2.0-flash-001")
+        # Aspect ratio'ya göre boyut belirle
+        if aspect_ratio == "1:1":
+            width, height = 1024, 1024
+        elif aspect_ratio == "2:3":
+            width, height = 1024, 1536
+        else:
+            width, height = 1024, 1024
         
-        themes_text = ', '.join(themes) if themes else "teknoloji, inovasyon"
+        # Imagen model'ini al
+        model = ImageGenerationModel.from_pretrained("imagen-4-preview")
         
-        prompt = f"""
-        Bu temalar ve proje fikrinden yola çıkarak 2040 yılında görsel olarak nasıl temsil edilebileceğini analiz et:
+        # Image generation parametreleri
+        generation_config = {
+            "sample_count": 1,
+            "aspect_ratio": aspect_ratio,
+            "safety_filter_level": "block_some"
+        }
         
-        Temalar: {themes_text}
-        Proje Fikri: {project_idea}
+        # Image üret
+        response = model.generate_images(
+            prompt=prompt,
+            generation_config=generation_config
+        )
         
-        Görsel referansları şu kategorilerde oluştur:
-        1. Teknoloji ekipmanları (holografik ekranlar, AI arayüzleri, vb.)
-        2. Çalışma ortamı özellikleri (futuristik ofis, laboratuvar, vb.)
-        3. Renk paleti ve aydınlatma
-        4. Kompozisyon ve düzen
-        5. Detaylar ve aksesuarlar
+        # Response'dan image data'sını çıkar
+        if response and len(response) > 0:
+            # İlk image'ı al
+            image = response[0]
+            
+            # Image'ı bytes olarak al
+            if hasattr(image, 'image_bytes'):
+                return image.image_bytes
+            elif hasattr(image, '_image_bytes'):
+                return image._image_bytes
+            else:
+                # Alternatif olarak PIL Image'ı bytes'a çevir
+                import io
+                img_buffer = io.BytesIO()
+                image.save(img_buffer, format='PNG')
+                img_buffer.seek(0)
+                return img_buffer.getvalue()
         
-        Her kategori için 3-5 görsel özellik öner.
-        Sadece görsel özellikleri listele, açıklama yapma.
-        """
+        print("No image data found in Vertex AI response")
+        return None
         
-        response = model.generate_content(prompt)
-        references = [ref.strip() for ref in response.text.split('\n') if ref.strip()]
-        return references
-        
+    except ImportError:
+        print("vertexai package not installed. Please install it with: pip install vertexai")
+        return None
     except Exception as e:
-        print(f"Visual reference generation error: {e}")
-        return []
+        print(f"Vertex AI Imagen image generation error: {e}")
+        return None
 
-def enhance_story_with_innovation_elements(story_text, themes, visual_references):
+def generate_image_unified(prompt, aspect_ratio="1:1", provider="dalle"):
     """
-    Hikayeyi inovasyon elementleri ve görsel referanslarla zenginleştirir.
-    Gelecek vizyonlarının birleşmesini ve projenin etkisini vurgular.
+    Birleşik görsel üretim fonksiyonu. Farklı provider'lar arasında geçiş yapabilir.
+    
+    Args:
+        prompt (str): Görsel üretim promptu
+        aspect_ratio (str): Görsel oranı ("1:1", "2:3", vb.)
+        provider (str): Provider seçimi ("dalle", "imagen")
+    
+    Returns:
+        bytes: Üretilen görsel verisi
     """
     try:
-        # Google Cloud credentials kontrol et
-        if not os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
-            return story_text
+        print(f"🖼️  Generating image with {provider.upper()}...")
         
-        # Vertex AI'yi başlat
-        import vertexai
-        vertexai.init(
-            project=os.environ.get('GOOGLE_CLOUD_PROJECT'),
-            location=os.environ.get('GOOGLE_CLOUD_LOCATION', 'us-central1')
-        )
-        
-        # Gemini 2.0 Flash modelini kullan
-        model = GenerativeModel(model_name="gemini-2.0-flash-001")
-        
-        themes_text = ', '.join(themes) if themes else "teknoloji"
-        visual_refs_text = ', '.join(visual_references) if visual_references else "futuristik ortam"
-        
-        prompt = f"""
-        Bu hikayeyi inovasyon elementleri ve görsel referanslarla zenginleştir:
-        
-        Orijinal Hikaye:
-        {story_text}
-        
-        Temalar: {themes_text}
-        Görsel Referanslar: {visual_refs_text}
-        
-        Hikayeyi şu şekilde geliştir:
-        1. Katılımcıların gelecek vizyonlarının nasıl birleştiğini daha net göster
-        2. Projenin dünya üzerindeki etkisini daha detaylı anlat
-        3. Teknolojik detayları ve inovasyon sürecini zenginleştir
-        4. 2040 yılının teknolojik atmosferini daha canlı yansıt
-        5. Vizyonların çözüme nasıl katkı sağladığını vurgula
-        6. Projenin sürdürülebilir etkisini ve gelecek vizyonunu güçlendir
-        7. Görsel betimlemeleri hikayenin içeriğini illustre edecek şekilde zenginleştir
-        
-        Hikayeyi aynı uzunlukta tut ama gelecek vizyonlarının birleşmesini ve projenin etkisini daha güçlü vurgula.
-        """
-        
-        response = model.generate_content(prompt)
-        enhanced_story = response.text
-        
-        return enhanced_story if enhanced_story else story_text
-        
+        if provider.lower() == "dalle":
+            return generate_image_with_dalle(prompt, aspect_ratio)
+        elif provider.lower() == "imagen":
+            return generate_image_with_imagen(prompt, aspect_ratio)
+        else:
+            print(f"❌ Unknown provider: {provider}. Using DALL-E as fallback.")
+            return generate_image_with_dalle(prompt, aspect_ratio)
+            
     except Exception as e:
-        print(f"Story enhancement error: {e}")
-        return story_text
+        print(f"Unified image generation error: {e}")
+        return None
 
-def create_vision_focused_image_prompt(story_text, themes, visual_references, participants):
+def generate_selfie_with_gpt4_vision(participants, story):
     """
-    Hikaye, temalar ve görsel referanslardan yola çıkarak hikayenin içeriğini illustre eden görsel prompt oluşturur.
-    Lumalabs.ai Character Reference için optimize edilmiş - katılımcıların gerçek görünümlerini korur.
+    GPT-4 Vision kullanarak katılımcı fotoğraflarından selfie görseli oluşturur.
     """
     try:
-        # Google Cloud credentials kontrol et
-        if not os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
-            return ""
+        if not OPENAI_API_KEY:
+            print("OpenAI API key not configured")
+            return None
         
-        # Vertex AI'yi başlat
-        import vertexai
-        vertexai.init(
-            project=os.environ.get('GOOGLE_CLOUD_PROJECT'),
-            location=os.environ.get('GOOGLE_CLOUD_LOCATION', 'us-central1')
-        )
+        # Katılımcı fotoğraflarını base64'e çevir
+        image_contents = []
+        for participant in participants:
+            if participant.photo_path:
+                try:
+                    # GCS'den fotoğrafı indir
+                    image_file_path = download_from_gcs(participant.photo_path)
+                    if image_file_path:
+                        # Dosyayı oku
+                        with open(image_file_path, 'rb') as f:
+                            image_data = f.read()
+                        
+                        image_data = base64.b64encode(image_data).decode('utf-8')
+                        image_contents.append({
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{image_data}"
+                            }
+                        })
+                        
+                        # Geçici dosyayı temizle
+                        try:
+                            os.remove(image_file_path)
+                        except:
+                            pass
+                except Exception as e:
+                    print(f"Error downloading photo for {participant.name}: {e}")
         
-        # Gemini 2.0 Flash modelini kullan
-        model = GenerativeModel(model_name="gemini-2.0-flash-001")
-        
-        # Katılımcıların gelecek vizyonlarını hazırla
-        future_visions = []
-        for p in participants:
-            future_visions.append(f"{p.name}: {p.future_impact}")
-        
-        future_visions_text = ", ".join(future_visions)
-        themes_text = ', '.join(themes) if themes else "teknoloji, inovasyon"
-        visual_refs_text = ', '.join(visual_references) if visual_references else "futuristik ortam"
-        names = ', '.join([p.name for p in participants])
+        if not image_contents:
+            print("No participant photos available")
+            return None
         
         prompt = f"""
-        Bu bilgilerden yola çıkarak 2040 yılında geçen, hikayenin içeriğini ve projenin vizyonunu illustre eden bir görsel prompt oluştur:
+        Bu katılımcıların fotoğraflarını kullanarak 2040 yılında birlikte çekilmiş bir grup selfie görseli oluştur.
         
-        Hikaye: {story_text}
-        Katılımcıların Gelecek Vizyonları: {future_visions_text}
-        Temalar: {themes_text}
-        Görsel Referanslar: {visual_refs_text}
+        Hikaye: {story}
         
-        Prompt gereksinimleri (Lumalabs.ai Character Reference için optimize edilmiş):
-        - 2040 yılı futuristik teknoloji ortamı
-        - Hikayenin içeriğini ve projenin vizyonunu illustre eden görsel elementler
-        - Projenin dünya üzerindeki etkisini gösteren görsel ipuçları
-        - Teknolojik ilerleme ve yenilik teması
-        - Ortak temaları görsel olarak yansıtmalı
-        - İnovatif ve çığır açan teknoloji atmosferi
-        - Dramatik aydınlatma ve kompozisyon
-        - Profesyonel iş ortamı atmosferi
-        - Holografik ekranlar, gelişmiş ekipmanlar
-        - Katılımcıların gerçek görünümlerini koruyacak şekilde tasarlanmalı
-        - Projenin vizyonunu ve gelecek etkisini gösteren sembolik elementler
-        - Hikayede bahsedilen teknolojik çözümün görsel temsili
+        Gereksinimler:
+        - Photorealistic grup selfie
+        - 2040 yılı futuristik ortam
+        - Katılımcıların hikayedeki rollerine göre giyim tarzları
+        - Sci-fi ışıltı ve ekipmanlar takıyor olmalılar
+        - Anti-aging yaklaşım (genç ve dinamik görünüm)
+        - Profesyonel ama vizyoner atmosfer
+        - Teknolojik aksesuarlar ve ışıltılar
+        - Başarılı ve güvenli ifadeler
+        - Futuristik arka plan
+        - Yüksek kaliteli, detaylı görsel
+        - 2:3 oranında (portrait format)
         
-        ÖNEMLİ: Lumalabs.ai Character Reference kullanılacak, bu yüzden:
-        - Katılımcıların yüz detaylarını prompt'ta belirtmeye gerek yok
-        - Character Reference otomatik olarak gerçek görünümleri koruyacak
-        - Odak hikayenin içeriği ve projenin vizyonu olmalı
-        - Ortam ve teknoloji detaylarını vurgula
-        
-        Prompt'u İngilizce olarak, Character Reference'ın otomatik olarak karakterleri yöneteceğini göz önünde bulundurarak oluştur.
+        Katılımcıların yüz özelliklerini koruyarak gelecekteki hallerini oluştur.
         """
         
-        response = model.generate_content(prompt)
-        image_prompt = response.text.strip()
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt
+                    }
+                ] + image_contents
+            }
+        ]
         
-        return image_prompt if image_prompt else f"2040 futuristic technology workspace, {names} collaborating on innovative project, holographic displays, advanced equipment, professional lighting, {themes_text}, visionary technology environment, collaborative innovation workspace, {future_visions_text}"
+        # GPT-4 Vision ile görsel oluştur
+        result = call_gpt4_vision_api(messages, model="gpt-4o", max_tokens=1000, temperature=0.7)
+        
+        if result:
+            # Sonuçtan görsel URL'sini çıkar (eğer varsa)
+            # Bu kısım GPT-4 Vision'ın görsel üretme yeteneğine bağlı
+            # Şimdilik DALL-E ile fallback yapalım
+            fallback_prompt = f"Photorealistic group selfie of professionals in futuristic attire, sci-fi lighting, advanced technology accessories, anti-aging appearance, 2040 setting"
+            return generate_image_with_dalle(fallback_prompt, "2:3")
+        
+        return None
         
     except Exception as e:
-        print(f"Vision-focused image prompt creation error: {e}")
-        names = ', '.join([p.name for p in participants])
-        themes_text = ', '.join(themes) if themes else "teknoloji, inovasyon"
-        future_visions = [f"{p.name}: {p.future_impact}" for p in participants]
-        future_visions_text = ", ".join(future_visions)
-        return f"2040 futuristic technology workspace, {names} collaborating on innovative project, holographic displays, advanced equipment, professional lighting, {themes_text}, visionary technology environment, collaborative innovation workspace, {future_visions_text}"
+        print(f"GPT-4 Vision selfie generation error: {e}")
+        return None
+
+def remix_images_with_image_edit(story_image_data, selfie_image_data):
+    """
+    gpt-image-1 kullanarak hikaye görseli ile selfie görselini remix eder.
+    Selfie, story'nin alt kısmında daha az yer kaplayacak şekilde yerleştirilir.
+    """
+    try:
+        if not OPENAI_API_KEY:
+            print("OpenAI API key not configured")
+            return story_image_data
+        
+        # Görselleri 2:3 oranında işle (1024x1536)
+        from PIL import Image
+        import io
+        
+        # Story image'ı işle
+        story_img = Image.open(io.BytesIO(story_image_data))
+        story_img = story_img.resize((1024, 1536), Image.Resampling.LANCZOS)
+        story_buffer = io.BytesIO()
+        story_img.save(story_buffer, format='PNG')
+        story_buffer.seek(0)
+        processed_story = story_buffer.getvalue()
+        
+        # Selfie image'ı işle
+        selfie_img = Image.open(io.BytesIO(selfie_image_data))
+        selfie_img = selfie_img.resize((1024, 1536), Image.Resampling.LANCZOS)
+        selfie_buffer = io.BytesIO()
+        selfie_img.save(selfie_buffer, format='PNG')
+        selfie_buffer.seek(0)
+        processed_selfie = selfie_buffer.getvalue()
+        
+        # OpenAI Images API edit endpoint'ini kullan (gpt-image-1)
+        # multipart/form-data formatında gönder
+        headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}"
+        }
+        
+        # Form data hazırla
+        files = [
+            ('image[]', ('story.png', processed_story, 'image/png')),
+            ('image[]', ('selfie.png', processed_selfie, 'image/png'))
+        ]
+        
+        data = {
+            'model': 'gpt-image-1',
+            'quality': 'high',
+            'prompt': f"""Combine these two images into a single composition:
+
+1. Top 3/4: Story image (futuristic technology workspace/vision)
+2. Bottom 1/4: Group selfie image (participants in futuristic setting)
+
+CRITICAL REQUIREMENTS:
+- DO NOT alter, modify, or change the content of either provided image
+- DO NOT add new elements, objects, or people that are not in the original images
+- DO NOT change colors, lighting, or details within the existing images
+- ONLY fill gaps and create seamless transitions between the two images
+- ONLY blend the edges where the two images meet
+- Preserve 100% of the original content and quality of both images
+
+Layout Instructions:
+- Place the story image in the top 3/4 of the composition
+- Place the selfie image in the bottom 1/4 of the composition
+- Create a natural transition zone between the two images
+- Fill any empty spaces with appropriate background extension from the story image
+- Maintain the original aspect ratios and proportions of both images
+- Output in 2:3 aspect ratio (portrait format)
+
+The goal is to create a seamless composite where both original images remain completely intact, with only the transition area and background gaps being filled."""
+        }
+        
+        response = requests.post(
+            "https://api.openai.com/v1/images/edits",
+            headers=headers,
+            data=data,
+            files=files,
+            timeout=120
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            # gpt-image-1 base64 formatında döner
+            if "data" in result and len(result["data"]) > 0:
+                image_base64 = result["data"][0]["b64_json"]
+                image_data = base64.b64decode(image_base64)
+                print("✓ Successfully remixed story and selfie images")
+                return image_data
+            else:
+                print("No image data in response")
+                return story_image_data
+        else:
+            print(f"OpenAI Images API edit error: {response.status_code} - {response.text}")
+            return story_image_data
+
+    except Exception as e:
+        print(f"GPT-Image Vision remix error: {e}")
+        return story_image_data
+
+def generate_group_futuristic_selfie_with_image_edit(participants, story):
+    """
+    OpenAI Images API edit endpoint kullanarak 2-4 katılımcının fotoğraflarından 
+    futuristik grup selfie görseli oluşturur.
+    gpt-image-1 modeli kullanarak birden fazla görseli array olarak gönderir.
+    """
+    try:
+        if not OPENAI_API_KEY:
+            print("OpenAI API key not configured")
+            return None
+        
+        # 2-4 katılımcı fotoğrafı gerekli
+        available_participants = [p for p in participants if p.photo_path]
+        if len(available_participants) < 2:
+            print("At least 2 participant photos required for group selfie")
+            return None
+        elif len(available_participants) > 4:
+            print("Maximum 4 participants supported, using first 4")
+            available_participants = available_participants[:4]
+        
+        print(f"Processing {len(available_participants)} participants for group selfie")
+        
+        # Tüm katılımcı fotoğraflarını indir ve işle
+        processed_images = []
+        participant_names = []
+        
+        for participant in available_participants:
+            image_file_path = None
+            try:
+                # Fotoğrafı indir
+                image_file_path = download_from_gcs(participant.photo_path)
+                if not image_file_path:
+                    print(f"Failed to download photo for {participant.name}")
+                    continue
+                
+                # Fotoğrafı 1024x1024 boyutuna getir
+                from PIL import Image
+                import io
+                
+                # Dosyayı oku
+                with open(image_file_path, 'rb') as f:
+                    image_data = f.read()
+                
+                img = Image.open(io.BytesIO(image_data))
+                
+                # 1024x1024 boyutuna getir (square format)
+                img = img.resize((1024, 1024), Image.Resampling.LANCZOS)
+                
+                # PNG formatında kaydet
+                img_buffer = io.BytesIO()
+                img.save(img_buffer, format='PNG')
+                img_buffer.seek(0)
+                
+                processed_images.append(img_buffer.getvalue())
+                participant_names.append(participant.name)
+                
+                print(f"✓ Processed photo for {participant.name} (1024x1024)")
+                
+            except Exception as e:
+                print(f"Error processing photo for {participant.name}: {e}")
+                continue
+            finally:
+                # Geçici dosyayı temizle
+                if image_file_path and os.path.exists(image_file_path):
+                    try:
+                        os.remove(image_file_path)
+                    except:
+                        pass
+        
+        if len(processed_images) < 2:
+            print("Insufficient processed images for group selfie")
+            return None
+        
+        # Katılımcı isimlerini birleştir
+        names_text = " and ".join(participant_names)
+        
+        # OpenAI Images API edit endpoint'ini kullan (gpt-image-1)
+        # multipart/form-data formatında gönder
+        headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}"
+        }
+        
+        # Form data hazırla
+        files = []
+        for i, img_data in enumerate(processed_images):
+            files.append(('image[]', (f'participant_{i+1}.png', img_data, 'image/png')))
+        
+        data = {
+            'model': 'gpt-image-1',
+            'quality': 'high',
+            'prompt': f"""Create a realistic group selfie showing these {len(participant_names)} people together in 2040.
+
+Participants: {names_text}
+
+Requirements:
+- Create a natural group selfie showing all participants together
+- Set the scene in 2040 (subtle future indication only)
+- Apply subtle anti-aging effects: reduce fine lines and wrinkles by 20-30%, smooth skin texture slightly, maintain natural skin tone and features
+- Keep everyone looking naturally themselves - don't over-process or make them look artificial
+- No futuristic accessories, glasses, or tech jewelry
+- Use plain, clean background
+- Maintain highly realistic appearance of all people
+- Professional but approachable atmosphere
+- High-quality, detailed image with realistic skin textures and facial features
+- Everyone should look confident and successful but natural
+- Group composition should be natural and engaging
+- Ensure all participants are clearly visible and well-integrated
+- Focus on realistic human appearance
+- Keep the background simple and clean
+- Output in 16:9 aspect ratio
+
+Story context: {story}
+
+Create a photorealistic group selfie that shows these professionals together, with only subtle indication they are in the future, maintaining their natural appearance with gentle anti-aging effects."""
+        }
+        
+        response = requests.post(
+            "https://api.openai.com/v1/images/edits",
+            headers=headers,
+            data=data,
+            files=files,
+            timeout=120
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            # gpt-image-1 base64 formatında döner
+            if "data" in result and len(result["data"]) > 0:
+                image_base64 = result["data"][0]["b64_json"]
+                image_data = base64.b64decode(image_base64)
+                print(f"✓ Successfully generated group selfie for {len(participant_names)} participants")
+                return image_data
+            else:
+                print("No image data in response")
+                return None
+        else:
+            print(f"OpenAI Images API edit error: {response.status_code} - {response.text}")
+            return None
+            
+    except Exception as e:
+        print(f"Group futuristic selfie generation with image edit error: {e}")
+        return None
+
+def generate_collaborative_story(participants, image_provider="dalle"):
+    """
+    Ana fonksiyon: Tüm adımları sırasıyla uygulayarak hikaye, görsel prompt ve görsel üretir.
+    
+    Args:
+        participants: Katılımcı listesi
+        image_provider (str): Görsel üretim provider'ı ("dalle", "imagen")
+    
+    Returns: (story, visual_prompt, final_image_data)
+    """
+    try:
+        print("Adım 1: Bireysel vizyon hikayeleri oluşturuluyor...")
+        individual_stories = []
+        for participant in participants:
+            story = generate_individual_vision_story(participant)
+            individual_stories.append((participant.name, story))
+            print(f"- {participant.name} için hikaye oluşturuldu")
+        
+        print("Adım 2: Ortak gelecek vizyonu hikayesi oluşturuluyor...")
+        collaborative_story = create_collaborative_future_story(individual_stories)
+        print("Ortak hikaye oluşturuldu")
+        
+        print("Adım 3: Hikaye görsel prompt'u oluşturuluyor...")
+        story_visual_prompt = create_story_visual_prompt(collaborative_story)
+        print("Hikaye görsel prompt'u oluşturuldu")
+        
+        print(f"Adım 4: Hikaye görseli üretiliyor ({image_provider.upper()})...")
+        story_image_data = generate_image_unified(story_visual_prompt, "1:1", image_provider)
+        if story_image_data:
+            print("Hikaye görseli üretildi")
+            
+            # Hikaye görselini local klasöre kaydet
+            from datetime import datetime
+            
+            # Local klasörleri oluştur
+            local_generated_dir = "local_generated"
+            story_images_dir = os.path.join(local_generated_dir, "story_images")
+            selfie_images_dir = os.path.join(local_generated_dir, "selfie_images")
+            
+            os.makedirs(story_images_dir, exist_ok=True)
+            os.makedirs(selfie_images_dir, exist_ok=True)
+            
+            # Timestamp oluştur
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            participant_names = "_".join([p.name.replace(" ", "_") for p in participants[:3]])  # İlk 3 katılımcı
+            
+            # Hikaye görselini kaydet
+            story_filename = f"story_{timestamp}_{participant_names}_{image_provider}.png"
+            story_filepath = os.path.join(story_images_dir, story_filename)
+            
+            with open(story_filepath, 'wb') as f:
+                f.write(story_image_data)
+            print(f"📁 Hikaye görseli kaydedildi: {story_filepath}")
+            
+        else:
+            print("❌ Hikaye görseli üretimi başarısız")
+        
+        print("Adım 5: OpenAI Images API ile futuristik grup selfie üretiliyor...")
+        # Sadece grup selfie destekleniyor (2-4 katılımcı)
+        available_participants = [p for p in participants if p.photo_path]
+        if len(available_participants) < 2:
+            print("⚠️  At least 2 participants with photos required for group selfie")
+            print("Skipping selfie generation due to insufficient participants")
+            selfie_image_data = None
+        else:
+            selfie_image_data = generate_group_futuristic_selfie_with_image_edit(participants, collaborative_story)
+            if selfie_image_data:
+                print("✓ Futuristik grup selfie görseli üretildi")
+                
+                # Selfie görselini local klasöre kaydet
+                selfie_filename = f"selfie_{timestamp}_{participant_names}.png"
+                selfie_filepath = os.path.join(selfie_images_dir, selfie_filename)
+                
+                with open(selfie_filepath, 'wb') as f:
+                    f.write(selfie_image_data)
+                print(f"📁 Selfie görseli kaydedildi: {selfie_filepath}")
+                
+            else:
+                print("⚠️  Group selfie generation failed")
+        
+        if story_image_data and selfie_image_data:
+            print("Adım 6: GPT-Image-1 ile görseller remix ediliyor...")
+            final_image_data = remix_images_with_image_edit(story_image_data, selfie_image_data)
+            
+            # Final görseli de kaydet
+            final_filename = f"final_{timestamp}_{participant_names}_{image_provider}.png"
+            final_filepath = os.path.join(local_generated_dir, final_filename)
+            
+            with open(final_filepath, 'wb') as f:
+                f.write(final_image_data)
+            print(f"📁 Final görsel kaydedildi: {final_filepath}")
+            
+            # Şablonu uygula
+            final_image_data = apply_template_to_image_data(final_image_data)
+            
+            print("Tüm işlemler tamamlandı!")
+            return collaborative_story, story_visual_prompt, final_image_data
+        elif story_image_data:
+            print("⚠️  Selfie generation failed, using only story image")
+            # Sadece hikaye görselini kullan
+            final_image_data = apply_template_to_image_data(story_image_data)
+            return collaborative_story, story_visual_prompt, final_image_data
+        else:
+            print("❌ Görsel üretimi başarısız")
+            return collaborative_story, story_visual_prompt, None
+            
+    except Exception as e:
+        print(f"Collaborative story generation error: {e}")
+        return "Katılımcılar birlikte geleceği şekillendiren bir teknoloji projesi geliştirdi.", "Photorealistic futuristic technology workspace in 2040", None
+
+def regenerate_image_from_story(story_text, visual_prompt, participants=None, image_provider="dalle"):
+    """
+    Mevcut hikaye ve görsel prompt'undan tekrar görsel üretir.
+    Hem yeni hikayeler hem de mevcut görselleri yeniden üretmek için kullanılabilir.
+    
+    Args:
+        story_text (str): Hikaye metni
+        visual_prompt (str): Görsel üretim promptu
+        participants (list): Katılımcı listesi (opsiyonel, selfie için kullanılır)
+        image_provider (str): Görsel üretim provider'ı ("dalle", "imagen")
+    
+    Returns:
+        tuple: (story_text, visual_prompt, final_image_data)
+    """
+    try:
+        print("🔄 Görsel yeniden üretimi başlatılıyor...")
+        
+        # Local klasörleri oluştur
+        import os
+        from datetime import datetime
+        
+        local_generated_dir = "local_generated"
+        story_images_dir = os.path.join(local_generated_dir, "story_images")
+        selfie_images_dir = os.path.join(local_generated_dir, "selfie_images")
+        
+        os.makedirs(story_images_dir, exist_ok=True)
+        os.makedirs(selfie_images_dir, exist_ok=True)
+        
+        # Timestamp oluştur
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        participant_names = ""
+        if participants:
+            participant_names = "_".join([p.name.replace(" ", "_") for p in participants[:3]])
+        
+        print(f"Adım 1: Hikaye görseli üretiliyor ({image_provider.upper()})...")
+        story_image_data = generate_image_unified(visual_prompt, "1:1", image_provider)
+        if not story_image_data:
+            print("❌ Hikaye görseli üretimi başarısız")
+            return story_text, visual_prompt, None
+        print("✓ Hikaye görseli üretildi")
+        
+        # Hikaye görselini kaydet
+        story_filename = f"story_regenerated_{timestamp}_{participant_names}_{image_provider}.png"
+        story_filepath = os.path.join(story_images_dir, story_filename)
+        
+        with open(story_filepath, 'wb') as f:
+            f.write(story_image_data)
+        print(f"📁 Hikaye görseli kaydedildi: {story_filepath}")
+        
+        # Eğer katılımcılar varsa ve fotoğrafları mevcutsa selfie de üret
+        selfie_image_data = None
+        if participants:
+            print("Adım 2: Grup selfie üretiliyor...")
+            available_participants = [p for p in participants if p.photo_path]
+            if len(available_participants) >= 2:
+                selfie_image_data = generate_group_futuristic_selfie_with_image_edit(participants, story_text)
+                if selfie_image_data:
+                    print("✓ Grup selfie üretildi")
+                    
+                    # Selfie görselini kaydet
+                    selfie_filename = f"selfie_regenerated_{timestamp}_{participant_names}.png"
+                    selfie_filepath = os.path.join(selfie_images_dir, selfie_filename)
+                    
+                    with open(selfie_filepath, 'wb') as f:
+                        f.write(selfie_image_data)
+                    print(f"📁 Selfie görseli kaydedildi: {selfie_filepath}")
+                    
+                else:
+                    print("⚠️  Grup selfie üretimi başarısız")
+            else:
+                print("⚠️  Yetersiz katılımcı fotoğrafı, selfie üretilmiyor")
+        
+        # Görselleri birleştir
+        if story_image_data and selfie_image_data:
+            print("Adım 3: Görseller remix ediliyor...")
+            final_image_data = remix_images_with_image_edit(story_image_data, selfie_image_data)
+            
+            # Final görseli kaydet
+            final_filename = f"final_regenerated_{timestamp}_{participant_names}_{image_provider}.png"
+            final_filepath = os.path.join(local_generated_dir, final_filename)
+            
+            with open(final_filepath, 'wb') as f:
+                f.write(final_image_data)
+            print(f"📁 Final görsel kaydedildi: {final_filepath}")
+            
+            # Şablonu uygula
+            final_image_data = apply_template_to_image_data(final_image_data)
+            
+            print("✓ Görsel yeniden üretimi tamamlandı!")
+            return story_text, visual_prompt, final_image_data
+        elif story_image_data:
+            print("⚠️  Selfie yok, sadece hikaye görseli kullanılıyor")
+            # Sadece hikaye görselini kullan
+            final_image_data = apply_template_to_image_data(story_image_data)
+            return story_text, visual_prompt, final_image_data
+        else:
+            print("❌ Görsel üretimi başarısız")
+            return story_text, visual_prompt, None
+            
+    except Exception as e:
+        print(f"Görsel yeniden üretimi hatası: {e}")
+        return story_text, visual_prompt, None
