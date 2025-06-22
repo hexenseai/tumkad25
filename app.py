@@ -842,7 +842,8 @@ TUMKAD Ekibi"""
             if not clean_phone.startswith('90'):
                 clean_phone = '90' + clean_phone
             # Create WhatsApp link
-            whatsapp_url = f"https://wa.me/{clean_phone}?text={message.replace(' ', '%20').replace('\n', '%0A')}"
+            encoded_message = message.replace(' ', '%20').replace('\n', '%0A')
+            whatsapp_url = f"https://wa.me/{clean_phone}?text={encoded_message}"
             whatsapp_links.append({
                 'name': participant.name,
                 'phone': participant.phone,
