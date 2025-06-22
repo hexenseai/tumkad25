@@ -322,6 +322,34 @@ def api_participants():
         'created_at': p.created_at.isoformat() if p.created_at else None
     } for p in participants])
 
+@app.route('/api/participant/<int:participant_id>')
+def get_participant_details(participant_id):
+    """
+    Belirli bir katılımcının tüm detaylarını getirir.
+    """
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': 'Yetkisiz erişim'}), 401
+    
+    participant = Participant.query.get(participant_id)
+    if not participant:
+        return jsonify({'error': 'Katılımcı bulunamadı'}), 404
+    
+    return jsonify({
+        'id': participant.id,
+        'name': participant.name,
+        'phone': participant.phone,
+        'email': participant.email,
+        'profession': participant.profession,
+        'sector': participant.sector,
+        'technical_interest': participant.technical_interest,
+        'future_impact': participant.future_impact,
+        'photo_path': participant.photo_path,
+        'generated_image_path': participant.generated_image_path,
+        'share_token': participant.share_token,
+        'kvkk_consent': participant.kvkk_consent,
+        'is_processed': participant.is_processed,
+        'created_at': participant.created_at.isoformat() if participant.created_at else None
+    })
 
 @app.route('/generate_story', methods=['GET', 'POST'])
 def generate_story():
