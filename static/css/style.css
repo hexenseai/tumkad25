@@ -1,7 +1,7 @@
 /* TUMKAD Custom Styles */
 
 :root {
-    --primary-color: #667eea;
+    --primary-color: #1e2d72;
     --secondary-color: #764ba2;
     --success-color: #28a745;
     --warning-color: #ffc107;
@@ -9,6 +9,11 @@
     --info-color: #17a2b8;
     --light-color: #f8f9fa;
     --dark-color: #343a40;
+}
+
+.bg-navbar {
+    --bs-bg-opacity: 1;
+    background-color: rgb(29 53 89) !important;
 }
 
 body {
