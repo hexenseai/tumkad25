@@ -401,11 +401,11 @@ def generate_selfie_with_gpt4_vision(participants, story):
                             }
                         })
                         
-                        # Geçici dosyayı temizle
-                        try:
-                            os.remove(image_file_path)
-                        except:
-                            pass
+                        # Geçici dosyayı temizle - LOCAL FILES KULLANDIĞIMIZ İÇİN SİLMİYORUZ
+                        # try:
+                        #     os.remove(image_file_path)
+                        # except:
+                        #     pass
                 except Exception as e:
                     print(f"Error downloading photo for {participant.name}: {e}")
         
@@ -624,12 +624,8 @@ def generate_group_futuristic_selfie_with_image_edit(participants, story):
                 print(f"Error processing photo for {participant.name}: {e}")
                 continue
             finally:
-                # Geçici dosyayı temizle
-                if image_file_path and os.path.exists(image_file_path):
-                    try:
-                        os.remove(image_file_path)
-                    except:
-                        pass
+                # Geçici dosyayı temizle - LOCAL FILES KULLANDIĞIMIZ İÇİN SİLMİYORUZ
+                pass
         
         if len(processed_images) < 2:
             print("Insufficient processed images for group selfie")
