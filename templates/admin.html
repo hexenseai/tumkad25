@@ -200,6 +200,106 @@
     </div>
 </div>
 
+<!-- Photo Upload Modal -->
+<div class="modal fade" id="photoUploadModal" tabindex="-1" aria-labelledby="photoUploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="photoUploadModalLabel">
+                    <i class="fas fa-camera"></i> Fotoğraf Yükle/Güncelle
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">Mevcut Fotoğraf</h6>
+                        <div id="currentPhotoContainer" class="text-center mb-3">
+                            <div class="bg-secondary rounded d-flex align-items-center justify-content-center mx-auto" 
+                                 style="width: 200px; height: 200px;">
+                                <i class="fas fa-user fa-3x text-white"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-primary">Yeni Fotoğraf</h6>
+                        <form id="photoUploadForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="newPhoto" class="form-label">Fotoğraf Seçin</label>
+                                <div class="input-group">
+                                    <input type="file" class="form-control" id="newPhoto" name="photo" accept="image/*" required>
+                                    <button class="btn btn-outline-secondary" type="button" id="capturePhotoBtn">
+                                        <i class="fas fa-camera"></i> Çek
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Photo Preview -->
+                            <div id="photoPreview" style="display: none;">
+                                <h6>Önizleme</h6>
+                                <img id="previewImg" src="" alt="Fotoğraf Önizleme" class="img-fluid rounded" style="max-height: 200px;">
+                            </div>
+                            
+                            <div class="alert alert-warning mt-3">
+                                <small>
+                                    <strong>Öneriler:</strong><br>
+                                    • Net ve aydınlık bir fotoğraf kullanın<br>
+                                    • Yüzünüzün tamamı görünür olsun<br>
+                                    • Sade arka plan tercih edin<br>
+                                    • Kare format ideal (otomatik dönüştürülür)
+                                </small>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-primary" id="uploadPhotoBtn" disabled>
+                    <i class="fas fa-upload"></i> Fotoğrafı Güncelle
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Camera Capture Modal -->
+<div class="modal fade" id="cameraModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-camera"></i> Fotoğraf Çek (Kare Format)
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center p-0">
+                <div class="camera-container" style="position: relative; background: #000; border-radius: 8px; overflow: hidden; height: 400px; width: 100%;">
+                    <video id="camera" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; display: none;" autoplay muted playsinline></video>
+                    <div id="cameraLoading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; text-align: center; z-index: 10;">
+                        <i class="fas fa-spinner fa-spin fa-2x mb-2"></i>
+                        <br>
+                        <small>Kamera yükleniyor...</small>
+                    </div>
+                    <!-- Kare format kılavuzu -->
+                    <div id="squareGuide" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 300px; height: 300px; border: 2px solid rgba(255,255,255,0.7); border-radius: 8px; display: none; pointer-events: none; z-index: 5;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="switchCameraBtn" style="display: none;">
+                    <i class="fas fa-sync"></i> Kamerayı Değiştir
+                </button>
+                <button type="button" class="btn btn-primary" id="capturePhotoBtn">
+                    <i class="fas fa-camera"></i> Fotoğraf Çek
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden canvas for image processing -->
+<canvas id="canvas" style="display: none;"></canvas>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -422,6 +522,13 @@ function viewParticipant(id) {
                                 </div>
                             </div>
                         ` : ''}
+                        
+                        <div class="mt-3">
+                            <h6 class="text-primary"><i class="fas fa-camera"></i> Fotoğraf İşlemleri</h6>
+                            <button type="button" class="btn btn-outline-primary" onclick="openPhotoUpload(${data.id})">
+                                <i class="fas fa-upload"></i> Fotoğraf Yükle/Güncelle
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -434,6 +541,50 @@ function viewParticipant(id) {
                 </div>
             `;
         });
+}
+
+let currentParticipantId = null;
+
+function openPhotoUpload(participantId) {
+    currentParticipantId = participantId;
+    
+    // Mevcut fotoğrafı göster
+    fetch(`/api/participant/${participantId}`)
+        .then(response => response.json())
+        .then(data => {
+            const currentPhotoContainer = document.getElementById('currentPhotoContainer');
+            if (data.photo_path) {
+                let photoUrl = '';
+                if (data.photo_path.startsWith('https://storage.googleapis.com/')) {
+                    photoUrl = data.photo_path;
+                } else {
+                    const photoFilename = data.photo_path.split('/').pop() || data.photo_path.split('\\').pop() || data.photo_path;
+                    photoUrl = `/uploads/${photoFilename}`;
+                }
+                
+                currentPhotoContainer.innerHTML = `
+                    <img src="${photoUrl}" alt="Mevcut Fotoğraf" 
+                         class="img-fluid rounded" style="max-width: 200px;"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                    <div class="bg-secondary rounded d-flex align-items-center justify-content-center mx-auto" 
+                         style="width: 200px; height: 200px; display: none;">
+                        <i class="fas fa-user fa-3x text-white"></i>
+                    </div>
+                `;
+            } else {
+                currentPhotoContainer.innerHTML = `
+                    <div class="bg-secondary rounded d-flex align-items-center justify-content-center mx-auto" 
+                         style="width: 200px; height: 200px;">
+                        <i class="fas fa-user fa-3x text-white"></i>
+                        <br><small class="text-white">Fotoğraf yok</small>
+                    </div>
+                `;
+            }
+        });
+    
+    // Modal'ı aç
+    const photoModal = new bootstrap.Modal(document.getElementById('photoUploadModal'));
+    photoModal.show();
 }
 
 function copyToClipboard(text) {
@@ -449,5 +600,321 @@ function debugStoryGeneration(id) {
     // Hikaye üretim sürecini debug et
     window.open(`/debug_story_generation/${id}`, '_blank');
 }
+
+// Photo upload functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const newPhotoInput = document.getElementById('newPhoto');
+    const photoPreview = document.getElementById('photoPreview');
+    const previewImg = document.getElementById('previewImg');
+    const uploadPhotoBtn = document.getElementById('uploadPhotoBtn');
+    const capturePhotoBtn = document.getElementById('capturePhotoBtn');
+    const cameraModal = new bootstrap.Modal(document.getElementById('cameraModal'));
+    const camera = document.getElementById('camera');
+    const canvas = document.getElementById('canvas');
+    let stream = null;
+    let isCameraActive = false;
+
+    // File input change handler
+    newPhotoInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // Yüklenen görseli kare formata dönüştür
+                const img = new Image();
+                img.onload = function() {
+                    // Canvas oluştur ve kare format için kırp
+                    const ctx = canvas.getContext('2d');
+                    
+                    // 1024x1024 hedef boyut
+                    const targetSize = 1024;
+                    canvas.width = targetSize;
+                    canvas.height = targetSize;
+                    
+                    // Görsel boyutlarını al
+                    const imgWidth = img.width;
+                    const imgHeight = img.height;
+                    
+                    // Kare kırpma hesaplaması
+                    let sourceX, sourceY, sourceWidth, sourceHeight;
+                    
+                    if (imgWidth > imgHeight) {
+                        // Görsel geniş, yüksekliğe göre kırp
+                        sourceHeight = imgHeight;
+                        sourceWidth = imgHeight;
+                        sourceX = (imgWidth - imgHeight) / 2;
+                        sourceY = 0;
+                    } else {
+                        // Görsel yüksek, genişliğe göre kırp
+                        sourceWidth = imgWidth;
+                        sourceHeight = imgWidth;
+                        sourceX = 0;
+                        sourceY = (imgHeight - imgWidth) / 2;
+                    }
+                    
+                    // Kare kırpılmış görüntüyü canvas'a çiz
+                    ctx.drawImage(
+                        img,
+                        sourceX, sourceY, sourceWidth, sourceHeight,  // Kaynak kırpma
+                        0, 0, targetSize, targetSize                   // Hedef boyut
+                    );
+                    
+                    // Canvas'tan blob oluştur
+                    canvas.toBlob(function(blob) {
+                        // Yeni dosyayı input'a ata
+                        const newFile = new File([blob], 'square_photo.jpg', { type: 'image/jpeg' });
+                        const dt = new DataTransfer();
+                        dt.items.add(newFile);
+                        newPhotoInput.files = dt.files;
+                        
+                        // Preview göster
+                        previewImg.src = URL.createObjectURL(blob);
+                        photoPreview.style.display = 'block';
+                        
+                        // Upload butonunu aktif et
+                        uploadPhotoBtn.disabled = false;
+                        
+                        console.log('Fotoğraf kare formata dönüştürüldü (1024x1024)');
+                    }, 'image/jpeg', 0.9);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Camera capture button
+    capturePhotoBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        cameraModal.show();
+    });
+
+    // Start camera when modal is fully shown
+    document.getElementById('cameraModal').addEventListener('shown.bs.modal', function() {
+        startCamera();
+    });
+
+    // Stop camera when modal is closed
+    document.getElementById('cameraModal').addEventListener('hidden.bs.modal', function() {
+        stopCamera();
+    });
+
+    // Capture photo from camera
+    document.getElementById('capturePhotoBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        if (!isCameraActive || !stream) {
+            alert('Kamera henüz hazır değil. Lütfen bekleyin ve tekrar deneyin.');
+            return;
+        }
+        
+        try {
+            // Video'nun hazır olduğundan emin ol
+            if (camera.readyState < 2) {
+                alert('Video henüz hazır değil. Lütfen birkaç saniye bekleyin ve tekrar deneyin.');
+                return;
+            }
+            
+            // Ayrı bir canvas oluştur
+            const captureCanvas = document.createElement('canvas');
+            const context = captureCanvas.getContext('2d');
+            
+            // Video boyutlarını al
+            const videoWidth = camera.videoWidth;
+            const videoHeight = camera.videoHeight;
+            
+            // Video boyutları geçerli mi kontrol et
+            if (videoWidth === 0 || videoHeight === 0) {
+                alert('Video boyutları alınamadı. Lütfen tekrar deneyin.');
+                return;
+            }
+            
+            // Kare format için boyutları hesapla (1024x1024)
+            const targetSize = 1024;
+            captureCanvas.width = targetSize;
+            captureCanvas.height = targetSize;
+            
+            // Video aspect ratio'suna göre kare kırpma yap
+            let sourceX, sourceY, sourceWidth, sourceHeight;
+            
+            if (videoWidth > videoHeight) {
+                // Video geniş, yüksekliğe göre kırp
+                sourceHeight = videoHeight;
+                sourceWidth = videoHeight;
+                sourceX = (videoWidth - videoHeight) / 2;
+                sourceY = 0;
+            } else {
+                // Video yüksek, genişliğe göre kırp
+                sourceWidth = videoWidth;
+                sourceHeight = videoWidth;
+                sourceX = 0;
+                sourceY = (videoHeight - videoWidth) / 2;
+            }
+            
+            // Kare kırpılmış görüntüyü canvas'a çiz
+            context.drawImage(
+                camera,
+                sourceX, sourceY, sourceWidth, sourceHeight,  // Kaynak kırpma
+                0, 0, targetSize, targetSize                   // Hedef boyut
+            );
+            
+            captureCanvas.toBlob(function(blob) {
+                if (!blob) {
+                    alert('Fotoğraf oluşturulamadı. Lütfen tekrar deneyin.');
+                    return;
+                }
+                
+                const file = new File([blob], 'captured_photo.jpg', { type: 'image/jpeg' });
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                newPhotoInput.files = dt.files;
+                
+                // Show preview
+                previewImg.src = URL.createObjectURL(blob);
+                photoPreview.style.display = 'block';
+                
+                // Enable upload button
+                uploadPhotoBtn.disabled = false;
+                
+                // Stop camera and close modal
+                stopCamera();
+                cameraModal.hide();
+                
+                // Show success message
+                setTimeout(() => {
+                    alert('Kare format fotoğraf başarıyla çekildi! (1024x1024)');
+                }, 100);
+                
+            }, 'image/jpeg', 0.9);
+            
+        } catch (error) {
+            console.error('Photo capture error:', error);
+            alert('Fotoğraf çekilirken bir hata oluştu. Lütfen tekrar deneyin.');
+        }
+    });
+
+    // Upload photo button
+    uploadPhotoBtn.addEventListener('click', function() {
+        if (!currentParticipantId) {
+            alert('Katılımcı ID bulunamadı!');
+            return;
+        }
+        
+        const file = newPhotoInput.files[0];
+        if (!file) {
+            alert('Lütfen bir fotoğraf seçin!');
+            return;
+        }
+        
+        // Upload butonunu devre dışı bırak
+        uploadPhotoBtn.disabled = true;
+        uploadPhotoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Yükleniyor...';
+        
+        // FormData oluştur
+        const formData = new FormData();
+        formData.append('photo', file);
+        
+        // Fotoğrafı yükle
+        fetch(`/api/participant/${currentParticipantId}/update_photo`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Fotoğraf başarıyla güncellendi!');
+                
+                // Modal'ları kapat
+                const photoModal = bootstrap.Modal.getInstance(document.getElementById('photoUploadModal'));
+                photoModal.hide();
+                
+                // Katılımcı detaylarını yenile
+                viewParticipant(currentParticipantId);
+                
+                // Sayfayı yenile (tablo güncellemesi için)
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                alert('Hata: ' + (data.error || 'Fotoğraf güncellenemedi.'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Fotoğraf yüklenirken hata oluştu!');
+        })
+        .finally(() => {
+            // Upload butonunu eski haline getir
+            uploadPhotoBtn.disabled = false;
+            uploadPhotoBtn.innerHTML = '<i class="fas fa-upload"></i> Fotoğrafı Güncelle';
+        });
+    });
+
+    // Start camera function
+    async function startCamera() {
+        if (isCameraActive) return;
+        
+        try {
+            // Show loading state
+            const cameraLoading = document.getElementById('cameraLoading');
+            const capturePhotoBtn = document.getElementById('capturePhotoBtn');
+            
+            cameraLoading.style.display = 'block';
+            capturePhotoBtn.disabled = true;
+            
+            // Stop any existing stream first
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            
+            // Request camera access
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: 'user',
+                    width: { ideal: 1280, max: 1920 },
+                    height: { ideal: 720, max: 1080 }
+                },
+                audio: false
+            });
+            
+            camera.srcObject = stream;
+            
+            // Wait for video to be ready
+            camera.addEventListener('loadedmetadata', function() {
+                camera.style.display = 'block';
+                cameraLoading.style.display = 'none';
+                capturePhotoBtn.disabled = false;
+                isCameraActive = true;
+                
+                // Show square guide
+                document.getElementById('squareGuide').style.display = 'block';
+            });
+            
+        } catch (error) {
+            console.error('Camera error:', error);
+            alert('Kamera erişimi sağlanamadı. Lütfen kamera izinlerini kontrol edin.');
+            cameraModal.hide();
+        }
+    }
+
+    // Stop camera function
+    function stopCamera() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+        isCameraActive = false;
+        
+        // Reset UI state
+        const cameraLoading = document.getElementById('cameraLoading');
+        const capturePhotoBtn = document.getElementById('capturePhotoBtn');
+        const squareGuide = document.getElementById('squareGuide');
+        
+        camera.style.display = 'none';
+        cameraLoading.style.display = 'block';
+        squareGuide.style.display = 'none';
+        capturePhotoBtn.disabled = true;
+    }
+});
 </script>
 {% endblock %} 

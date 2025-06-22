@@ -348,6 +348,64 @@ def get_participant_details(participant_id):
         'created_at': participant.created_at.isoformat() if participant.created_at else None
     })
 
+@app.route('/api/participant/<int:participant_id>/update_photo', methods=['POST'])
+def update_participant_photo(participant_id):
+    """
+    Katılımcının fotoğrafını günceller.
+    """
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': 'Yetkisiz erişim'}), 401
+    
+    participant = Participant.query.get(participant_id)
+    if not participant:
+        return jsonify({'error': 'Katılımcı bulunamadı'}), 404
+    
+    # Fotoğraf dosyasını kontrol et
+    if 'photo' not in request.files:
+        return jsonify({'error': 'Fotoğraf dosyası bulunamadı'}), 400
+    
+    photo = request.files['photo']
+    if photo.filename == '':
+        return jsonify({'error': 'Fotoğraf seçilmedi'}), 400
+    
+    try:
+        # Eski fotoğrafı sil (eğer varsa)
+        if participant.photo_path:
+            try:
+                delete_from_gcs(participant.photo_path)
+            except Exception as e:
+                print(f"Eski fotoğraf silinirken hata: {e}")
+        
+        # Yeni fotoğrafı işle ve yükle
+        filename = secure_filename(f"{uuid.uuid4()}_square_photo.png")
+        
+        # Fotoğrafı Pillow ile açıp PNG olarak hazırla
+        img = Image.open(photo.stream)
+        img_buffer = io.BytesIO()
+        img.save(img_buffer, format='PNG')
+        img_data = img_buffer.getvalue()
+        
+        # GCS'e yükle
+        gcs_url = upload_to_gcs(img_data, filename, 'uploads')
+        
+        if not gcs_url:
+            return jsonify({'error': 'Fotoğraf yüklenirken bir hata oluştu'}), 500
+        
+        # Veritabanını güncelle
+        participant.photo_path = gcs_url
+        participant.is_processed = False  # Yeni fotoğraf için işlem durumunu sıfırla
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Fotoğraf başarıyla güncellendi',
+            'photo_path': gcs_url
+        })
+        
+    except Exception as e:
+        print(f"Fotoğraf güncelleme hatası: {e}")
+        return jsonify({'error': f'Fotoğraf güncellenirken hata oluştu: {str(e)}'}), 500
+
 @app.route('/generate_story', methods=['GET', 'POST'])
 def generate_story():
     participants = []
