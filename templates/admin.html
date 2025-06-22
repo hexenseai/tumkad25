@@ -98,6 +98,7 @@
                                 <th>Fotoğraf</th>
                                 <th>Ad Soyad</th>
                                 <th>Telefon</th>
+                                <th>Email</th>
                                 <th>Meslek</th>
                                 <th>Sektör</th>
                                 <th>Kayıt Tarihi</th>
@@ -133,6 +134,7 @@
                                 </td>
                                 <td>{{ participant.name }}</td>
                                 <td>{{ participant.phone or '-' }}</td>
+                                <td>{{ participant.email or '-' }}</td>
                                 <td>{{ participant.profession or '-' }}</td>
                                 <td>{{ participant.sector or '-' }}</td>
                                 <td>{{ participant.created_at.strftime('%d.%m.%Y %H:%M') }}</td>

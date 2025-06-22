@@ -110,7 +110,6 @@ def generate_individual_vision_story(participant):
         - Sektör: {participant.sector}
         - Teknik İlgi Alanı: {participant.technical_interest}
         - Gelecek Vizyonu (2035): {participant.future_impact}
-        - İdeal Çalışma Ortamı: {participant.work_environment}
         
         Görev:
         1. Bu kişinin verdiği bilgileri analiz et.

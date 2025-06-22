@@ -36,11 +36,11 @@ class Participant(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(20), nullable=False, unique=True)
+    email = db.Column(db.String(100), nullable=False)  # Email adresi
     profession = db.Column(db.String(100), nullable=False)  # Mesleğiniz / Temel Uzmanlık Alanı
     sector = db.Column(db.String(100), nullable=False)  # Çalıştığınız Sektör
     technical_interest = db.Column(db.Text, nullable=False)  # Sizi En Çok Heyecanlandıran Teknik Alan
     future_impact = db.Column(db.Text, nullable=False)  # 2040 Yılında Yaratmak İstediğiniz En Büyük Etki
-    work_environment = db.Column(db.String(200), nullable=False)  # Çalışma Ortamı Hayali
     photo_path = db.Column(db.String(255))
     generated_image_path = db.Column(db.String(255))
     share_token = db.Column(db.String(100), unique=True)
@@ -82,14 +82,14 @@ def register():
         name = request.form.get('name')
         phone = request.form.get('phone')
         phone = normalize_phone(phone)
+        email = request.form.get('email')
         profession = request.form.get('profession')
         sector = request.form.get('sector')
         technical_interest = request.form.get('technical_interest')
         future_impact = request.form.get('future_impact')
-        work_environment = request.form.get('work_environment')
         
         # Validate required fields
-        if not all([name, phone, profession, sector, technical_interest, future_impact, work_environment]):
+        if not all([name, phone, email, profession, sector, technical_interest, future_impact]):
             flash('Lütfen tüm zorunlu alanları doldurunuz.', 'danger')
             return render_template('register.html')
         
@@ -98,11 +98,11 @@ def register():
         if existing_participant:
             # Update existing participant
             existing_participant.name = name
+            existing_participant.email = email
             existing_participant.profession = profession
             existing_participant.sector = sector
             existing_participant.technical_interest = technical_interest
             existing_participant.future_impact = future_impact
-            existing_participant.work_environment = work_environment
             existing_participant.kvkk_consent = kvkk_consent
             participant = existing_participant
         else:
@@ -110,11 +110,11 @@ def register():
             participant = Participant(
                 name=name,
                 phone=phone,
+                email=email,
                 profession=profession,
                 sector=sector,
                 technical_interest=technical_interest,
                 future_impact=future_impact,
-                work_environment=work_environment,
                 kvkk_consent=kvkk_consent,
                 share_token=str(uuid.uuid4())
             )
@@ -371,11 +371,11 @@ def api_participants():
         'id': p.id,
         'name': p.name,
         'phone': p.phone,
+        'email': p.email,
         'profession': p.profession,
         'sector': p.sector,
         'technical_interest': p.technical_interest,
         'future_impact': p.future_impact,
-        'work_environment': p.work_environment,
         'is_processed': p.is_processed,
         'share_token': p.share_token,
         'created_at': p.created_at.isoformat() if p.created_at else None
@@ -517,8 +517,7 @@ def debug_story_generation(participant_id):
                 'profession': participant.profession,
                 'sector': participant.sector,
                 'technical_interest': participant.technical_interest,
-                'future_impact': participant.future_impact,
-                'work_environment': participant.work_environment
+                'future_impact': participant.future_impact
             },
             'new_process': {
                 'story_text': story_text,
