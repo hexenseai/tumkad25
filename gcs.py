@@ -23,16 +23,35 @@ def upload_to_gcs(file_data, filename, folder='uploads'):
         local_folder = LOCAL_UPLOAD_FOLDER if folder == 'uploads' else LOCAL_GENERATED_FOLDER
         local_path = os.path.join(local_folder, filename)
         
+        print(f"Yerel klasör: {local_folder}")
+        print(f"Dosya adı: {filename}")
+        print(f"Tam dosya yolu: {local_path}")
+        print(f"Dosya boyutu: {len(file_data)} bytes")
+        
+        # Klasörün var olduğundan emin ol
+        os.makedirs(local_folder, exist_ok=True)
+        
         with open(local_path, 'wb') as f:
             f.write(file_data)
+        
+        # Dosyanın gerçekten yazıldığını kontrol et
+        if os.path.exists(local_path):
+            file_size = os.path.getsize(local_path)
+            print(f"Dosya başarıyla yazıldı. Boyut: {file_size} bytes")
+        else:
+            print("Dosya yazılamadı!")
+            return None
         
         # Yerel URL oluştur
         local_url = f"/local_files/{folder}/{filename}"
         print(f"Dosya yerel olarak kaydedildi: {local_path}")
+        print(f"Oluşturulan URL: {local_url}")
         return local_url
         
     except Exception as e:
         print(f"Upload error: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def download_from_gcs(local_url):

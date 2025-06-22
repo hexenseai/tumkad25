@@ -132,7 +132,7 @@ def register():
             img.save(img_buffer, format='PNG')
             img_data = img_buffer.getvalue()
             
-            # GCS'e yükle
+            # GCS'e yükle (bu aslında yerel dosya sistemine kaydediyor)
             gcs_url = upload_to_gcs(img_data, filename, 'uploads')
             
             if not gcs_url:
@@ -141,6 +141,9 @@ def register():
             
             # Veritabanına GCS URL'sini kaydet
             participant.photo_path = gcs_url
+            
+            print(f"Fotoğraf başarıyla kaydedildi: {filename}")
+            print(f"Yerel URL: {gcs_url}")
         else:
             flash('Lütfen bir fotoğraf yükleyiniz.', 'danger')
             return render_template('register.html')
@@ -682,6 +685,43 @@ def regenerate_image(process_id):
     except Exception as e:
         print(f"Error regenerating image for process {process_id}: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/debug_local_files')
+def debug_local_files():
+    """
+    Yerel dosya sisteminin durumunu kontrol eder.
+    """
+    if not session.get('admin_logged_in'):
+        return "Yetkisiz erişim", 401
+    
+    debug_info = {
+        'local_uploads_exists': os.path.exists('local_uploads'),
+        'local_generated_exists': os.path.exists('local_generated'),
+        'local_uploads_files': [],
+        'local_generated_files': [],
+        'participants_with_photos': []
+    }
+    
+    # local_uploads klasöründeki dosyaları listele
+    if os.path.exists('local_uploads'):
+        debug_info['local_uploads_files'] = os.listdir('local_uploads')
+    
+    # local_generated klasöründeki dosyaları listele
+    if os.path.exists('local_generated'):
+        debug_info['local_generated_files'] = os.listdir('local_generated')
+    
+    # Katılımcıların fotoğraf yollarını kontrol et
+    participants = Participant.query.all()
+    for participant in participants:
+        if participant.photo_path:
+            debug_info['participants_with_photos'].append({
+                'id': participant.id,
+                'name': participant.name,
+                'photo_path': participant.photo_path,
+                'is_local': participant.photo_path.startswith('/local_files/')
+            })
+    
+    return jsonify(debug_info)
 
 @app.route('/debug_image_urls')
 def debug_image_urls():
