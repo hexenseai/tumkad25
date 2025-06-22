@@ -165,6 +165,10 @@
                                         </div>
                                         <!-- Kare format kılavuzu -->
                                         <div id="squareGuide" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 300px; height: 300px; border: 2px solid rgba(255,255,255,0.7); border-radius: 8px; display: none; pointer-events: none; z-index: 5;"></div>
+                                        <!-- Kamera değiştirme butonu -->
+                                        <button type="button" class="btn btn-light btn-sm" id="switchCameraBtn" style="position: absolute; top: 10px; right: 10px; z-index: 15; display: none;">
+                                            <i class="fas fa-sync-alt"></i> Kamera Değiştir
+                                        </button>
                                     </div>
                                     <canvas id="canvas" style="display: none;"></canvas>
                                 </div>
@@ -273,11 +277,11 @@
 #camera {
     transition: none !important;
     animation: none !important;
-    transform: none !important;
+    transform: scaleX(-1) !important; /* Mirror effect */
 }
 
 #camera:hover {
-    transform: none !important;
+    transform: scaleX(-1) !important; /* Keep mirror effect on hover */
     transition: none !important;
 }
 
@@ -308,6 +312,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const registerForm = document.getElementById('registerForm');
     let stream = null;
     let isCameraActive = false;
+    let currentFacingMode = 'user'; // 'user' for front camera, 'environment' for back camera
+    let availableCameras = [];
+    let currentCameraIndex = 0;
 
     // Force visibility of all form-text elements
     function ensureFormTextVisibility() {
@@ -335,9 +342,14 @@ document.addEventListener('DOMContentLoaded', function() {
             // Show loading state
             const cameraLoading = document.getElementById('cameraLoading');
             const capturePhotoBtn = document.getElementById('capturePhotoBtn');
+            const switchCameraBtn = document.getElementById('switchCameraBtn');
             
             cameraLoading.style.display = 'block';
             capturePhotoBtn.disabled = true;
+            switchCameraBtn.style.display = 'none';
+            
+            // Get available cameras first
+            await getAvailableCameras();
             
             // Stop any existing stream first
             if (stream) {
@@ -347,7 +359,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Request camera access with mobile-friendly constraints
             stream = await navigator.mediaDevices.getUserMedia({
                 video: {
-                    facingMode: 'user', // Use front camera on mobile
+                    facingMode: currentFacingMode,
                     width: { ideal: 1280, max: 1920 },
                     height: { ideal: 720, max: 1080 }
                 },
@@ -367,6 +379,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     const squareGuide = document.getElementById('squareGuide');
                     squareGuide.style.display = 'block';
                     
+                    // Show switch camera button if multiple cameras available
+                    if (availableCameras.length > 1) {
+                        switchCameraBtn.style.display = 'block';
+                    }
+                    
                     // Hide loading and enable button
                     cameraLoading.style.display = 'none';
                     capturePhotoBtn.disabled = false;
@@ -375,6 +392,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     camera.play();
                     
                     console.log('Camera ready - Video dimensions:', camera.videoWidth, 'x', camera.videoHeight);
+                    console.log('Available cameras:', availableCameras.length);
                 }, 1000); // 1 saniye bekle
             };
             
@@ -385,23 +403,89 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Stop camera function
-    function stopCamera() {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-            stream = null;
+    // Get available cameras
+    async function getAvailableCameras() {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            availableCameras = devices.filter(device => device.kind === 'videoinput');
+            console.log('Available cameras:', availableCameras);
+        } catch (error) {
+            console.error('Error getting cameras:', error);
+            availableCameras = [];
         }
-        isCameraActive = false;
+    }
+
+    // Switch camera function
+    async function switchCamera() {
+        if (!isCameraActive || availableCameras.length <= 1) return;
         
-        // Reset UI state
-        const cameraLoading = document.getElementById('cameraLoading');
-        const capturePhotoBtn = document.getElementById('capturePhotoBtn');
-        const squareGuide = document.getElementById('squareGuide');
-        
-        camera.style.display = 'none';
-        cameraLoading.style.display = 'block';
-        squareGuide.style.display = 'none';
-        capturePhotoBtn.disabled = true;
+        try {
+            // Show loading state
+            const cameraLoading = document.getElementById('cameraLoading');
+            const capturePhotoBtn = document.getElementById('capturePhotoBtn');
+            const switchCameraBtn = document.getElementById('switchCameraBtn');
+            
+            cameraLoading.style.display = 'block';
+            capturePhotoBtn.disabled = true;
+            switchCameraBtn.style.display = 'none';
+            
+            // Stop current stream
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            
+            // Switch facing mode
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            
+            // Request new camera
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: currentFacingMode,
+                    width: { ideal: 1280, max: 1920 },
+                    height: { ideal: 720, max: 1080 }
+                },
+                audio: false
+            });
+            
+            camera.srcObject = stream;
+            
+            // Wait for video to be ready
+            camera.onloadedmetadata = function() {
+                setTimeout(() => {
+                    // Show video
+                    camera.style.display = 'block';
+                    
+                    // Show square guide
+                    const squareGuide = document.getElementById('squareGuide');
+                    squareGuide.style.display = 'block';
+                    
+                    // Show switch camera button
+                    switchCameraBtn.style.display = 'block';
+                    
+                    // Hide loading and enable button
+                    cameraLoading.style.display = 'none';
+                    capturePhotoBtn.disabled = false;
+                    
+                    camera.play();
+                    
+                    console.log('Camera switched - Video dimensions:', camera.videoWidth, 'x', camera.videoHeight);
+                    console.log('Current facing mode:', currentFacingMode);
+                }, 500);
+            };
+            
+        } catch (error) {
+            console.error('Camera switch error:', error);
+            alert('Kamera değiştirilirken bir hata oluştu. Lütfen tekrar deneyin.');
+            
+            // Reset to previous state
+            const cameraLoading = document.getElementById('cameraLoading');
+            const capturePhotoBtn = document.getElementById('capturePhotoBtn');
+            const switchCameraBtn = document.getElementById('switchCameraBtn');
+            
+            cameraLoading.style.display = 'none';
+            capturePhotoBtn.disabled = false;
+            switchCameraBtn.style.display = 'block';
+        }
     }
 
     // KVKK Consent validation
@@ -513,6 +597,12 @@ document.addEventListener('DOMContentLoaded', function() {
     captureBtn.addEventListener('click', function(e) {
         e.preventDefault();
         cameraModal.show();
+    });
+
+    // Switch camera button
+    document.getElementById('switchCameraBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        switchCamera();
     });
 
     // Start camera when modal is fully shown
@@ -677,6 +767,27 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
         }
     });
+
+    // Stop camera function
+    function stopCamera() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+        isCameraActive = false;
+        
+        // Reset UI state
+        const cameraLoading = document.getElementById('cameraLoading');
+        const capturePhotoBtn = document.getElementById('capturePhotoBtn');
+        const switchCameraBtn = document.getElementById('switchCameraBtn');
+        const squareGuide = document.getElementById('squareGuide');
+        
+        camera.style.display = 'none';
+        cameraLoading.style.display = 'block';
+        squareGuide.style.display = 'none';
+        switchCameraBtn.style.display = 'none';
+        capturePhotoBtn.disabled = true;
+    }
 });
 </script>
 {% endblock %} 
