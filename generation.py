@@ -705,7 +705,7 @@ Create a photorealistic group selfie that shows these professionals together, wi
         print(f"Group futuristic selfie generation with image edit error: {e}")
         return None
 
-def generate_collaborative_story(participants, image_provider="dalle"):
+def generate_collaborative_story(participants, image_provider="imagen"):
     """
     Ana fonksiyon: Tüm adımları sırasıyla uygulayarak hikaye, görsel prompt ve görsel üretir.
     
@@ -815,7 +815,7 @@ def generate_collaborative_story(participants, image_provider="dalle"):
         print(f"Collaborative story generation error: {e}")
         return "Katılımcılar birlikte geleceği şekillendiren bir teknoloji projesi geliştirdi.", "Photorealistic futuristic technology workspace in 2040", None
 
-def regenerate_image_from_story(story_text, visual_prompt, participants=None, image_provider="dalle"):
+def regenerate_image_from_story(story_text, visual_prompt, participants=None, image_provider="imagen"):
     """
     Mevcut hikaye ve görsel prompt'undan tekrar görsel üretir.
     Hem yeni hikayeler hem de mevcut görselleri yeniden üretmek için kullanılabilir.
