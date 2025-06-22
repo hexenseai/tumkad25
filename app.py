@@ -9,13 +9,10 @@ from PIL import Image
 import io
 from gcs import upload_to_gcs, get_gcs_file_url, delete_from_gcs, download_from_gcs
 import tempfile
-from dotenv import load_dotenv
 
 from utils import normalize_phone, apply_template_to_image_data
 from generation import generate_collaborative_story, regenerate_image_from_story
 
-# Load environment variables from .env file
-load_dotenv()
 
 # OpenAI API konfigürasyonu
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', 'your-openai-api-key-here')

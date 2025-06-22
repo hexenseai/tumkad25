@@ -6,10 +6,6 @@ import time
 import json
 from utils import apply_template_to_image_data
 from gcs import download_from_gcs
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
 
 # OpenAI API konfigürasyonu - basit requests kullanarak
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
