@@ -41,20 +41,20 @@ def call_openai_api(messages, model="gpt-4o", max_tokens=500, temperature=0.8):
             return response.json()["choices"][0]["message"]["content"].strip()
         else:
             error_msg = f"OpenAI API hatası: {response.status_code} - {response.text}"
-            print(error_msg)
+            print(error_msg, flush=True)
             return f"HATA: {error_msg}"
             
     except requests.exceptions.Timeout:
         error_msg = "OpenAI API zaman aşımı hatası"
-        print(error_msg)
+        print(error_msg, flush=True)
         return f"HATA: {error_msg}"
     except requests.exceptions.ConnectionError:
         error_msg = "OpenAI API bağlantı hatası"
-        print(error_msg)
+        print(error_msg, flush=True)
         return f"HATA: {error_msg}"
     except Exception as e:
         error_msg = f"OpenAI API çağrı hatası: {e}"
-        print(error_msg)
+        print(error_msg, flush=True)
         return f"HATA: {error_msg}"
 
 def call_gpt4_vision_api(messages, model="gpt-4o", max_tokens=1000, temperature=0.7):
@@ -88,20 +88,20 @@ def call_gpt4_vision_api(messages, model="gpt-4o", max_tokens=1000, temperature=
             return response.json()["choices"][0]["message"]["content"].strip()
         else:
             error_msg = f"GPT-4 Vision API hatası: {response.status_code} - {response.text}"
-            print(error_msg)
+            print(error_msg, flush=True)
             return f"HATA: {error_msg}"
             
     except requests.exceptions.Timeout:
         error_msg = "GPT-4 Vision API zaman aşımı hatası"
-        print(error_msg)
+        print(error_msg, flush=True)
         return f"HATA: {error_msg}"
     except requests.exceptions.ConnectionError:
         error_msg = "GPT-4 Vision API bağlantı hatası"
-        print(error_msg)
+        print(error_msg, flush=True)
         return f"HATA: {error_msg}"
     except Exception as e:
         error_msg = f"GPT-4 Vision API çağrı hatası: {e}"
-        print(error_msg)
+        print(error_msg, flush=True)
         return f"HATA: {error_msg}"
 
 def generate_futuristic_selfie_with_image_edit(participants, story):
@@ -109,7 +109,7 @@ def generate_futuristic_selfie_with_image_edit(participants, story):
     Bu fonksiyon artık kullanılmıyor. Sadece grup selfie destekleniyor.
     En az 2 katılımcı gerekli.
     """
-    print("Single participant selfie is deprecated. Using group selfie instead.")
+    print("Single participant selfie is deprecated. Using group selfie instead.", flush=True)
     return generate_group_futuristic_selfie_with_image_edit(participants, story)
 
 def generate_individual_vision_story(participant):
@@ -118,7 +118,7 @@ def generate_individual_vision_story(participant):
     """
     try:
         if not OPENAI_API_KEY:
-            print("OpenAI API key not configured")
+            print("OpenAI API key not configured", flush=True)
             return f"HATA: OpenAI API anahtarı yapılandırılmamış"
         
         prompt = f"""
@@ -152,14 +152,14 @@ def generate_individual_vision_story(participant):
         
         # Hata kontrolü
         if story and story.startswith("HATA:"):
-            print(f"❌ {participant.name} için hikaye oluşturulamadı: {story}")
+            print(f"❌ {participant.name} için hikaye oluşturulamadı: {story}", flush=True)
             return story
         
         return story if story else f"HATA: {participant.name} için hikaye oluşturulamadı"
         
     except Exception as e:
         error_msg = f"Bireysel vizyon hikayesi oluşturma hatası: {e}"
-        print(error_msg)
+        print(error_msg, flush=True)
         return f"HATA: {error_msg}"
 
 def create_collaborative_future_story(individual_stories):
@@ -168,14 +168,14 @@ def create_collaborative_future_story(individual_stories):
     """
     try:
         if not OPENAI_API_KEY:
-            print("OpenAI API key not configured")
+            print("OpenAI API key not configured", flush=True)
             return "HATA: OpenAI API anahtarı yapılandırılmamış"
         
         # Bireysel hikayelerde hata kontrolü
         error_stories = [story for name, story in individual_stories if story.startswith("HATA:")]
         if error_stories:
             error_msg = f"Bireysel hikayelerde hatalar var: {', '.join(error_stories)}"
-            print(f"❌ {error_msg}")
+            print(f"❌ {error_msg}", flush=True)
             return f"HATA: {error_msg}"
         
         stories_text = "\n\n".join([f"{name}:\n{story}" for name, story in individual_stories])
@@ -211,14 +211,14 @@ def create_collaborative_future_story(individual_stories):
         
         # Hata kontrolü
         if story and story.startswith("HATA:"):
-            print(f"❌ Ortak hikaye oluşturulamadı: {story}")
+            print(f"❌ Ortak hikaye oluşturulamadı: {story}", flush=True)
             return story
         
         return story if story else "HATA: Ortak hikaye oluşturulamadı"
         
     except Exception as e:
         error_msg = f"Ortak hikaye oluşturma hatası: {e}"
-        print(error_msg)
+        print(error_msg, flush=True)
         return f"HATA: {error_msg}"
 
 def create_story_visual_prompt(story):
@@ -227,12 +227,12 @@ def create_story_visual_prompt(story):
     """
     try:
         if not OPENAI_API_KEY:
-            print("OpenAI API key not configured")
+            print("OpenAI API key not configured", flush=True)
             return "HATA: OpenAI API anahtarı yapılandırılmamış"
         
         # Hikaye hata kontrolü
         if story.startswith("HATA:"):
-            print(f"❌ Hikaye hatası nedeniyle görsel prompt oluşturulamadı: {story}")
+            print(f"❌ Hikaye hatası nedeniyle görsel prompt oluşturulamadı: {story}", flush=True)
             return f"HATA: {story}"
         
         prompt = f"""
@@ -267,14 +267,14 @@ def create_story_visual_prompt(story):
         
         # Hata kontrolü
         if visual_prompt and visual_prompt.startswith("HATA:"):
-            print(f"❌ Görsel prompt oluşturulamadı: {visual_prompt}")
+            print(f"❌ Görsel prompt oluşturulamadı: {visual_prompt}", flush=True)
             return visual_prompt
         
         return visual_prompt if visual_prompt else "HATA: Görsel prompt oluşturulamadı"
         
     except Exception as e:
         error_msg = f"Hikaye görsel prompt oluşturma hatası: {e}"
-        print(error_msg)
+        print(error_msg, flush=True)
         return f"HATA: {error_msg}"
 
 def generate_image_with_dalle(prompt, aspect_ratio="1:1"):
@@ -283,7 +283,7 @@ def generate_image_with_dalle(prompt, aspect_ratio="1:1"):
     """
     try:
         if not OPENAI_API_KEY:
-            print("OpenAI API key not configured")
+            print("OpenAI API key not configured", flush=True)
             return None
         
         headers = {
@@ -315,14 +315,14 @@ def generate_image_with_dalle(prompt, aspect_ratio="1:1"):
             if img_response.status_code == 200:
                 return img_response.content
             else:
-                print(f"Failed to download image: {img_response.status_code}")
+                print(f"Failed to download image: {img_response.status_code}", flush=True)
                 return None
         else:
-            print(f"DALL-E API error: {response.status_code} - {response.text}")
+            print(f"DALL-E API error: {response.status_code} - {response.text}", flush=True)
             return None
             
     except Exception as e:
-        print(f"DALL-E image generation error: {e}")
+        print(f"DALL-E image generation error: {e}", flush=True)
         return None
 
 def generate_image_with_imagen(prompt, aspect_ratio="1:1"):
@@ -337,7 +337,7 @@ def generate_image_with_imagen(prompt, aspect_ratio="1:1"):
         # Google Cloud Project ID al
         GOOGLE_CLOUD_PROJECT = os.environ.get('GOOGLE_CLOUD_PROJECT')
         if not GOOGLE_CLOUD_PROJECT:
-            print("Google Cloud Project ID not configured")
+            print("Google Cloud Project ID not configured", flush=True)
             return None
         
         # Vertex AI'yi initialize et
@@ -388,14 +388,14 @@ def generate_image_with_imagen(prompt, aspect_ratio="1:1"):
                 img_buffer.seek(0)
                 return img_buffer.getvalue()
         
-        print("No image data found in Vertex AI response")
+        print("No image data found in Vertex AI response", flush=True)
         return None
         
     except ImportError:
-        print("vertexai package not installed. Please install it with: pip install vertexai")
+        print("vertexai package not installed. Please install it with: pip install vertexai", flush=True)
         return None
     except Exception as e:
-        print(f"Vertex AI Imagen image generation error: {e}")
+        print(f"Vertex AI Imagen image generation error: {e}", flush=True)
         return None
 
 def generate_image_unified(prompt, aspect_ratio="1:1", provider="dalle"):
@@ -411,18 +411,18 @@ def generate_image_unified(prompt, aspect_ratio="1:1", provider="dalle"):
         bytes: Üretilen görsel verisi
     """
     try:
-        print(f"🖼️  Generating image with {provider.upper()}...")
+        print(f"🖼️  Generating image with {provider.upper()}...", flush=True)
         
         if provider.lower() == "dalle":
             return generate_image_with_dalle(prompt, aspect_ratio)
         elif provider.lower() == "imagen":
             return generate_image_with_imagen(prompt, aspect_ratio)
         else:
-            print(f"❌ Unknown provider: {provider}. Using DALL-E as fallback.")
+            print(f"❌ Unknown provider: {provider}. Using DALL-E as fallback.", flush=True)
             return generate_image_with_dalle(prompt, aspect_ratio)
             
     except Exception as e:
-        print(f"Unified image generation error: {e}")
+        print(f"Unified image generation error: {e}", flush=True)
         return None
 
 def generate_selfie_with_gpt4_vision(participants, story):
@@ -431,7 +431,7 @@ def generate_selfie_with_gpt4_vision(participants, story):
     """
     try:
         if not OPENAI_API_KEY:
-            print("OpenAI API key not configured")
+            print("OpenAI API key not configured", flush=True)
             return None
         
         # Katılımcı fotoğraflarını base64'e çevir
@@ -460,10 +460,10 @@ def generate_selfie_with_gpt4_vision(participants, story):
                         # except:
                         #     pass
                 except Exception as e:
-                    print(f"Error downloading photo for {participant.name}: {e}")
+                    print(f"Error downloading photo for {participant.name}: {e}", flush=True)
         
         if not image_contents:
-            print("No participant photos available")
+            print("No participant photos available", flush=True)
             return None
         
         prompt = f"""
@@ -512,7 +512,7 @@ def generate_selfie_with_gpt4_vision(participants, story):
         return None
         
     except Exception as e:
-        print(f"GPT-4 Vision selfie generation error: {e}")
+        print(f"GPT-4 Vision selfie generation error: {e}", flush=True)
         return None
 
 def remix_images_with_image_edit(story_image_data, selfie_image_data):
@@ -522,7 +522,7 @@ def remix_images_with_image_edit(story_image_data, selfie_image_data):
     """
     try:
         if not OPENAI_API_KEY:
-            print("OpenAI API key not configured")
+            print("OpenAI API key not configured", flush=True)
             return story_image_data
         
         # Görselleri 2:3 oranında işle (1024x1536)
@@ -598,17 +598,17 @@ The goal is to create a seamless composite where both original images remain com
             if "data" in result and len(result["data"]) > 0:
                 image_base64 = result["data"][0]["b64_json"]
                 image_data = base64.b64decode(image_base64)
-                print("✓ Successfully remixed story and selfie images")
+                print("✓ Successfully remixed story and selfie images", flush=True)
                 return image_data
             else:
-                print("No image data in response")
+                print("No image data in response", flush=True)
                 return story_image_data
         else:
-            print(f"OpenAI Images API edit error: {response.status_code} - {response.text}")
+            print(f"OpenAI Images API edit error: {response.status_code} - {response.text}", flush=True)
             return story_image_data
 
     except Exception as e:
-        print(f"GPT-Image Vision remix error: {e}")
+        print(f"GPT-Image Vision remix error: {e}", flush=True)
         return story_image_data
 
 def generate_group_futuristic_selfie_with_image_edit(participants, story):
@@ -619,19 +619,19 @@ def generate_group_futuristic_selfie_with_image_edit(participants, story):
     """
     try:
         if not OPENAI_API_KEY:
-            print("OpenAI API key not configured")
+            print("OpenAI API key not configured", flush=True)
             return None
         
         # 2-4 katılımcı fotoğrafı gerekli
         available_participants = [p for p in participants if p.photo_path]
         if len(available_participants) < 2:
-            print("At least 2 participant photos required for group selfie")
+            print("At least 2 participant photos required for group selfie", flush=True)
             return None
         elif len(available_participants) > 4:
-            print("Maximum 4 participants supported, using first 4")
+            print("Maximum 4 participants supported, using first 4", flush=True)
             available_participants = available_participants[:4]
         
-        print(f"Processing {len(available_participants)} participants for group selfie")
+        print(f"Processing {len(available_participants)} participants for group selfie", flush=True)
         
         # Tüm katılımcı fotoğraflarını indir ve işle
         processed_images = []
@@ -643,7 +643,7 @@ def generate_group_futuristic_selfie_with_image_edit(participants, story):
                 # Fotoğrafı indir
                 image_file_path = download_from_gcs(participant.photo_path)
                 if not image_file_path:
-                    print(f"Failed to download photo for {participant.name}")
+                    print(f"Failed to download photo for {participant.name}", flush=True)
                     continue
                 
                 # Fotoğrafı 1024x1024 boyutuna getir
@@ -658,9 +658,9 @@ def generate_group_futuristic_selfie_with_image_edit(participants, story):
                 
                 # Eğer görsel zaten 1024x1024 ise olduğu gibi kullan, değilse resize et
                 if img.size == (1024, 1024):
-                    print(f"✓ Photo for {participant.name} is already 1024x1024, using as is")
+                    print(f"✓ Photo for {participant.name} is already 1024x1024, using as is", flush=True)
                 else:
-                    print(f"✓ Resizing photo for {participant.name} from {img.size} to 1024x1024")
+                    print(f"✓ Resizing photo for {participant.name} from {img.size} to 1024x1024", flush=True)
                     img = img.resize((1024, 1024), Image.Resampling.LANCZOS)
                 
                 # PNG formatında kaydet
@@ -671,17 +671,17 @@ def generate_group_futuristic_selfie_with_image_edit(participants, story):
                 processed_images.append(img_buffer.getvalue())
                 participant_names.append(participant.name)
                 
-                print(f"✓ Processed photo for {participant.name} (1024x1024)")
+                print(f"✓ Processed photo for {participant.name} (1024x1024)", flush=True)
                 
             except Exception as e:
-                print(f"Error processing photo for {participant.name}: {e}")
+                print(f"Error processing photo for {participant.name}: {e}", flush=True)
                 continue
             finally:
                 # Geçici dosyayı temizle - LOCAL FILES KULLANDIĞIMIZ İÇİN SİLMİYORUZ
                 pass
         
         if len(processed_images) < 2:
-            print("Insufficient processed images for group selfie")
+            print("Insufficient processed images for group selfie", flush=True)
             return None
         
         # Katılımcı isimlerini birleştir
@@ -741,17 +741,17 @@ Create a photorealistic group selfie that shows these professionals together, wi
             if "data" in result and len(result["data"]) > 0:
                 image_base64 = result["data"][0]["b64_json"]
                 image_data = base64.b64decode(image_base64)
-                print(f"✓ Successfully generated group selfie for {len(participant_names)} participants")
+                print(f"✓ Successfully generated group selfie for {len(participant_names)} participants", flush=True)
                 return image_data
             else:
-                print("No image data in response")
+                print("No image data in response", flush=True)
                 return None
         else:
-            print(f"OpenAI Images API edit error: {response.status_code} - {response.text}")
+            print(f"OpenAI Images API edit error: {response.status_code} - {response.text}", flush=True)
             return None
             
     except Exception as e:
-        print(f"Group futuristic selfie generation with image edit error: {e}")
+        print(f"Group futuristic selfie generation with image edit error: {e}", flush=True)
         return None
 
 def generate_collaborative_story(participants, image_provider="imagen"):
@@ -765,43 +765,43 @@ def generate_collaborative_story(participants, image_provider="imagen"):
     Returns: (story, visual_prompt, final_image_data)
     """
     try:
-        print("Adım 1: Bireysel vizyon hikayeleri oluşturuluyor...")
+        print("Adım 1: Bireysel vizyon hikayeleri oluşturuluyor...", flush=True)
         individual_stories = []
         for participant in participants:
             story = generate_individual_vision_story(participant)
             
             # Hata kontrolü
             if story.startswith("HATA:"):
-                print(f"❌ Süreç durduruldu: {story}")
+                print(f"❌ Süreç durduruldu: {story}", flush=True)
                 return story, None, None
             
             individual_stories.append((participant.name, story))
-            print(f"- {participant.name} için hikaye oluşturuldu")
+            print(f"- {participant.name} için hikaye oluşturuldu", flush=True)
         
-        print("Adım 2: Ortak gelecek vizyonu hikayesi oluşturuluyor...")
+        print("Adım 2: Ortak gelecek vizyonu hikayesi oluşturuluyor...", flush=True)
         collaborative_story = create_collaborative_future_story(individual_stories)
         
         # Hata kontrolü
         if collaborative_story.startswith("HATA:"):
-            print(f"❌ Süreç durduruldu: {collaborative_story}")
+            print(f"❌ Süreç durduruldu: {collaborative_story}", flush=True)
             return collaborative_story, None, None
         
-        print("Ortak hikaye oluşturuldu")
+        print("Ortak hikaye oluşturuldu", flush=True)
         
-        print("Adım 3: Hikaye görsel prompt'u oluşturuluyor...")
+        print("Adım 3: Hikaye görsel prompt'u oluşturuluyor...", flush=True)
         story_visual_prompt = create_story_visual_prompt(collaborative_story)
         
         # Hata kontrolü
         if story_visual_prompt.startswith("HATA:"):
-            print(f"❌ Süreç durduruldu: {story_visual_prompt}")
+            print(f"❌ Süreç durduruldu: {story_visual_prompt}", flush=True)
             return collaborative_story, story_visual_prompt, None
         
-        print("Hikaye görsel prompt'u oluşturuldu")
+        print("Hikaye görsel prompt'u oluşturuldu", flush=True)
         
-        print(f"Adım 4: Hikaye görseli üretiliyor ({image_provider.upper()})...")
+        print(f"Adım 4: Hikaye görseli üretiliyor ({image_provider.upper()})...", flush=True)
         story_image_data = generate_image_unified(story_visual_prompt, "1:1", image_provider)
         if story_image_data:
-            print("Hikaye görseli üretildi")
+            print("Hikaye görseli üretildi", flush=True)
             
             # Hikaye görselini local klasöre kaydet
             from datetime import datetime
@@ -824,23 +824,23 @@ def generate_collaborative_story(participants, image_provider="imagen"):
             
             with open(story_filepath, 'wb') as f:
                 f.write(story_image_data)
-            print(f"📁 Hikaye görseli kaydedildi: {story_filepath}")
+            print(f"📁 Hikaye görseli kaydedildi: {story_filepath}", flush=True)
             
         else:
-            print("❌ Hikaye görseli üretimi başarısız")
+            print("❌ Hikaye görseli üretimi başarısız", flush=True)
             return collaborative_story, story_visual_prompt, None
         
-        print("Adım 5: OpenAI Images API ile futuristik grup selfie üretiliyor...")
+        print("Adım 5: OpenAI Images API ile futuristik grup selfie üretiliyor...", flush=True)
         # Sadece grup selfie destekleniyor (2-4 katılımcı)
         available_participants = [p for p in participants if p.photo_path]
         if len(available_participants) < 2:
-            print("⚠️  At least 2 participants with photos required for group selfie")
-            print("Skipping selfie generation due to insufficient participants")
+            print("⚠️  At least 2 participants with photos required for group selfie", flush=True)
+            print("Skipping selfie generation due to insufficient participants", flush=True)
             selfie_image_data = None
         else:
             selfie_image_data = generate_group_futuristic_selfie_with_image_edit(participants, collaborative_story)
             if selfie_image_data:
-                print("✓ Futuristik grup selfie görseli üretildi")
+                print("✓ Futuristik grup selfie görseli üretildi", flush=True)
                 
                 # Selfie görselini local klasöre kaydet
                 selfie_filename = f"selfie_{timestamp}_{participant_names}.png"
@@ -848,13 +848,13 @@ def generate_collaborative_story(participants, image_provider="imagen"):
                 
                 with open(selfie_filepath, 'wb') as f:
                     f.write(selfie_image_data)
-                print(f"📁 Selfie görseli kaydedildi: {selfie_filepath}")
+                print(f"📁 Selfie görseli kaydedildi: {selfie_filepath}", flush=True)
                 
             else:
-                print("⚠️  Group selfie generation failed")
+                print("⚠️  Group selfie generation failed", flush=True)
         
         if story_image_data and selfie_image_data:
-            print("Adım 6: GPT-Image-1 ile görseller remix ediliyor...")
+            print("Adım 6: GPT-Image-1 ile görseller remix ediliyor...", flush=True)
             final_image_data = remix_images_with_image_edit(story_image_data, selfie_image_data)
             
             # Final görseli de kaydet
@@ -863,25 +863,25 @@ def generate_collaborative_story(participants, image_provider="imagen"):
             
             with open(final_filepath, 'wb') as f:
                 f.write(final_image_data)
-            print(f"📁 Final görsel kaydedildi: {final_filepath}")
+            print(f"📁 Final görsel kaydedildi: {final_filepath}", flush=True)
             
             # Şablonu uygula
             final_image_data = apply_template_to_image_data(final_image_data)
             
-            print("Tüm işlemler tamamlandı!")
+            print("Tüm işlemler tamamlandı!", flush=True)
             return collaborative_story, story_visual_prompt, final_image_data
         elif story_image_data:
-            print("⚠️  Selfie generation failed, using only story image")
+            print("⚠️  Selfie generation failed, using only story image", flush=True)
             # Sadece hikaye görselini kullan
             final_image_data = apply_template_to_image_data(story_image_data)
             return collaborative_story, story_visual_prompt, final_image_data
         else:
-            print("❌ Görsel üretimi başarısız")
+            print("❌ Görsel üretimi başarısız", flush=True)
             return collaborative_story, story_visual_prompt, None
             
     except Exception as e:
         error_msg = f"Ortak hikaye oluşturma hatası: {e}"
-        print(f"❌ {error_msg}")
+        print(f"❌ {error_msg}", flush=True)
         return f"HATA: {error_msg}", None, None
 
 def regenerate_image_from_story(story_text, visual_prompt, participants=None, image_provider="imagen"):
@@ -899,16 +899,16 @@ def regenerate_image_from_story(story_text, visual_prompt, participants=None, im
         tuple: (story_text, visual_prompt, final_image_data)
     """
     try:
-        print("🔄 Görsel yeniden üretimi başlatılıyor...")
+        print("🔄 Görsel yeniden üretimi başlatılıyor...", flush=True)
         
         # Hikaye hata kontrolü
         if story_text.startswith("HATA:"):
-            print(f"❌ Hikaye hatası nedeniyle görsel yeniden üretimi durduruldu: {story_text}")
+            print(f"❌ Hikaye hatası nedeniyle görsel yeniden üretimi durduruldu: {story_text}", flush=True)
             return story_text, visual_prompt, None
         
         # Prompt hata kontrolü
         if visual_prompt.startswith("HATA:"):
-            print(f"❌ Prompt hatası nedeniyle görsel yeniden üretimi durduruldu: {visual_prompt}")
+            print(f"❌ Prompt hatası nedeniyle görsel yeniden üretimi durduruldu: {visual_prompt}", flush=True)
             return story_text, visual_prompt, None
         
         # Local klasörleri oluştur
@@ -928,12 +928,12 @@ def regenerate_image_from_story(story_text, visual_prompt, participants=None, im
         if participants:
             participant_names = "_".join([p.name.replace(" ", "_") for p in participants[:3]])
         
-        print(f"Adım 1: Hikaye görseli üretiliyor ({image_provider.upper()})...")
+        print(f"Adım 1: Hikaye görseli üretiliyor ({image_provider.upper()})...", flush=True)
         story_image_data = generate_image_unified(visual_prompt, "1:1", image_provider)
         if not story_image_data:
-            print("❌ Hikaye görseli üretimi başarısız")
+            print("❌ Hikaye görseli üretimi başarısız", flush=True)
             return story_text, visual_prompt, None
-        print("✓ Hikaye görseli üretildi")
+        print("✓ Hikaye görseli üretildi", flush=True)
         
         # Hikaye görselini kaydet
         story_filename = f"story_regenerated_{timestamp}_{participant_names}_{image_provider}.png"
@@ -941,17 +941,17 @@ def regenerate_image_from_story(story_text, visual_prompt, participants=None, im
         
         with open(story_filepath, 'wb') as f:
             f.write(story_image_data)
-        print(f"📁 Hikaye görseli kaydedildi: {story_filepath}")
+        print(f"📁 Hikaye görseli kaydedildi: {story_filepath}", flush=True)
         
         # Eğer katılımcılar varsa ve fotoğrafları mevcutsa selfie de üret
         selfie_image_data = None
         if participants:
-            print("Adım 2: Grup selfie üretiliyor...")
+            print("Adım 2: Grup selfie üretiliyor...", flush=True)
             available_participants = [p for p in participants if p.photo_path]
             if len(available_participants) >= 2:
                 selfie_image_data = generate_group_futuristic_selfie_with_image_edit(participants, story_text)
                 if selfie_image_data:
-                    print("✓ Grup selfie üretildi")
+                    print("✓ Grup selfie üretildi", flush=True)
                     
                     # Selfie görselini kaydet
                     selfie_filename = f"selfie_regenerated_{timestamp}_{participant_names}.png"
@@ -959,16 +959,16 @@ def regenerate_image_from_story(story_text, visual_prompt, participants=None, im
                     
                     with open(selfie_filepath, 'wb') as f:
                         f.write(selfie_image_data)
-                    print(f"📁 Selfie görseli kaydedildi: {selfie_filepath}")
+                    print(f"📁 Selfie görseli kaydedildi: {selfie_filepath}", flush=True)
                     
                 else:
-                    print("⚠️  Grup selfie üretimi başarısız")
+                    print("⚠️  Grup selfie üretimi başarısız", flush=True)
             else:
-                print("⚠️  Yetersiz katılımcı fotoğrafı, selfie üretilmiyor")
+                print("⚠️  Yetersiz katılımcı fotoğrafı, selfie üretilmiyor", flush=True)
         
         # Görselleri birleştir
         if story_image_data and selfie_image_data:
-            print("Adım 3: Görseller remix ediliyor...")
+            print("Adım 3: Görseller remix ediliyor...", flush=True)
             final_image_data = remix_images_with_image_edit(story_image_data, selfie_image_data)
             
             # Final görseli kaydet
@@ -977,23 +977,23 @@ def regenerate_image_from_story(story_text, visual_prompt, participants=None, im
             
             with open(final_filepath, 'wb') as f:
                 f.write(final_image_data)
-            print(f"📁 Final görsel kaydedildi: {final_filepath}")
+            print(f"📁 Final görsel kaydedildi: {final_filepath}", flush=True)
             
             # Şablonu uygula
             final_image_data = apply_template_to_image_data(final_image_data)
             
-            print("✓ Görsel yeniden üretimi tamamlandı!")
+            print("✓ Görsel yeniden üretimi tamamlandı!", flush=True)
             return story_text, visual_prompt, final_image_data
         elif story_image_data:
-            print("⚠️  Selfie yok, sadece hikaye görseli kullanılıyor")
+            print("⚠️  Selfie yok, sadece hikaye görseli kullanılıyor", flush=True)
             # Sadece hikaye görselini kullan
             final_image_data = apply_template_to_image_data(story_image_data)
             return story_text, visual_prompt, final_image_data
         else:
-            print("❌ Görsel üretimi başarısız")
+            print("❌ Görsel üretimi başarısız", flush=True)
             return story_text, visual_prompt, None
             
     except Exception as e:
         error_msg = f"Görsel yeniden üretimi hatası: {e}"
-        print(f"❌ {error_msg}")
+        print(f"❌ {error_msg}", flush=True)
         return story_text, visual_prompt, None

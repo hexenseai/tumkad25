@@ -11,7 +11,7 @@ LOCAL_GENERATED_FOLDER = 'local_generated'
 os.makedirs(LOCAL_UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(LOCAL_GENERATED_FOLDER, exist_ok=True)
 
-print("Local storage system initialized")
+print("Local storage system initialized", flush=True)
 
 # Local Dosya İşlemleri Yardımcı Fonksiyonları
 def upload_to_gcs(file_data, filename, folder='uploads'):
@@ -23,10 +23,10 @@ def upload_to_gcs(file_data, filename, folder='uploads'):
         local_folder = LOCAL_UPLOAD_FOLDER if folder == 'uploads' else LOCAL_GENERATED_FOLDER
         local_path = os.path.join(local_folder, filename)
         
-        print(f"Yerel klasör: {local_folder}")
-        print(f"Dosya adı: {filename}")
-        print(f"Tam dosya yolu: {local_path}")
-        print(f"Dosya boyutu: {len(file_data)} bytes")
+        print(f"Yerel klasör: {local_folder}", flush=True)
+        print(f"Dosya adı: {filename}", flush=True)
+        print(f"Tam dosya yolu: {local_path}", flush=True)
+        print(f"Dosya boyutu: {len(file_data)} bytes", flush=True)
         
         # Klasörün var olduğundan emin ol
         os.makedirs(local_folder, exist_ok=True)
@@ -37,19 +37,19 @@ def upload_to_gcs(file_data, filename, folder='uploads'):
         # Dosyanın gerçekten yazıldığını kontrol et
         if os.path.exists(local_path):
             file_size = os.path.getsize(local_path)
-            print(f"Dosya başarıyla yazıldı. Boyut: {file_size} bytes")
+            print(f"Dosya başarıyla yazıldı. Boyut: {file_size} bytes", flush=True)
         else:
-            print("Dosya yazılamadı!")
+            print("Dosya yazılamadı!", flush=True)
             return None
         
         # Yerel URL oluştur
         local_url = f"/local_files/{folder}/{filename}"
-        print(f"Dosya yerel olarak kaydedildi: {local_path}")
-        print(f"Oluşturulan URL: {local_url}")
+        print(f"Dosya yerel olarak kaydedildi: {local_path}", flush=True)
+        print(f"Oluşturulan URL: {local_url}", flush=True)
         return local_url
         
     except Exception as e:
-        print(f"Upload error: {e}")
+        print(f"Upload error: {e}", flush=True)
         import traceback
         traceback.print_exc()
         return None
@@ -72,11 +72,11 @@ def download_from_gcs(local_url):
             if os.path.exists(full_path):
                 return full_path
             else:
-                print(f"Local file not found: {full_path}")
+                print(f"Local file not found: {full_path}", flush=True)
                 return None
         
     except Exception as e:
-        print(f"Download error: {e}")
+        print(f"Download error: {e}", flush=True)
         return None
 
 def delete_from_gcs(local_url):
@@ -96,14 +96,14 @@ def delete_from_gcs(local_url):
             
             if os.path.exists(full_path):
                 os.remove(full_path)
-                print(f"Yerel dosya silindi: {full_path}")
+                print(f"Yerel dosya silindi: {full_path}", flush=True)
                 return True
             else:
-                print(f"Local file not found: {full_path}")
+                print(f"Local file not found: {full_path}", flush=True)
                 return False
         
     except Exception as e:
-        print(f"Delete error: {e}")
+        print(f"Delete error: {e}", flush=True)
         return False
 
 def get_gcs_file_url(filename, folder='uploads'):
@@ -121,5 +121,5 @@ def create_signed_url(local_url, expiration_minutes=60):
         return local_url
         
     except Exception as e:
-        print(f"Signed URL creation error: {e}")
+        print(f"Signed URL creation error: {e}", flush=True)
         return None

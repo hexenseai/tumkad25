@@ -139,8 +139,8 @@ def register():
             # Veritabanına GCS URL'sini kaydet
             participant.photo_path = gcs_url
             
-            print(f"Fotoğraf başarıyla kaydedildi: {filename}")
-            print(f"Yerel URL: {gcs_url}")
+            print(f"Fotoğraf başarıyla kaydedildi: {filename}", flush=True)
+            print(f"Yerel URL: {gcs_url}", flush=True)
         else:
             flash('Lütfen bir fotoğraf yükleyiniz.', 'danger')
             return render_template('register.html')
@@ -272,11 +272,11 @@ def uploaded_file(filename):
                 download_name=filename
             )
         else:
-            print(f"Local file not found: {local_path}")
+            print(f"Local file not found: {local_path}", flush=True)
             return "Dosya bulunamadı", 404
             
     except Exception as e:
-        print(f"Uploaded file serving error: {e}")
+        print(f"Uploaded file serving error: {e}", flush=True)
         return "Dosya servis hatası", 500
 
 @app.route('/generated/<filename>')
@@ -295,11 +295,11 @@ def generated_file(filename):
                 download_name=filename
             )
         else:
-            print(f"Local file not found: {local_path}")
+            print(f"Local file not found: {local_path}", flush=True)
             return "Dosya bulunamadı", 404
             
     except Exception as e:
-        print(f"Generated file serving error: {e}")
+        print(f"Generated file serving error: {e}", flush=True)
         return "Dosya servis hatası", 500
 
 @app.route('/api/participants')
@@ -374,7 +374,7 @@ def update_participant_photo(participant_id):
             try:
                 delete_from_gcs(participant.photo_path)
             except Exception as e:
-                print(f"Eski fotoğraf silinirken hata: {e}")
+                print(f"Eski fotoğraf silinirken hata: {e}", flush=True)
         
         # Yeni fotoğrafı işle ve yükle
         filename = secure_filename(f"{uuid.uuid4()}_square_photo.png")
@@ -403,7 +403,7 @@ def update_participant_photo(participant_id):
         })
         
     except Exception as e:
-        print(f"Fotoğraf güncelleme hatası: {e}")
+        print(f"Fotoğraf güncelleme hatası: {e}", flush=True)
         return jsonify({'error': f'Fotoğraf güncellenirken hata oluştu: {str(e)}'}), 500
 
 @app.route('/generate_story', methods=['GET', 'POST'])
@@ -480,7 +480,7 @@ def generate_story():
             return render_template('generate_story.html', participants=participants, process=process)
             
         except Exception as e:
-            print(f"Story generation error: {e}")
+            print(f"Story generation error: {e}", flush=True)
             flash(f'Hikaye oluşturulurken bir hata oluştu: {str(e)}', 'danger')
             return render_template('generate_story.html', participants=[], process=None)
     
@@ -577,7 +577,7 @@ def debug_story_generation(participant_id):
         return jsonify(debug_info)
         
     except Exception as e:
-        print(f"Debug story generation error: {e}")
+        print(f"Debug story generation error: {e}", flush=True)
         return jsonify({'error': str(e)}), 500
 
 @app.route('/admin_stories')
@@ -640,7 +640,7 @@ def delete_story(process_id):
         })
         
     except Exception as e:
-        print(f"Story deletion error: {e}")
+        print(f"Story deletion error: {e}", flush=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/local_files/<folder>/<filename>')
@@ -659,9 +659,10 @@ def local_file(folder, filename):
         if os.path.exists(file_path):
             return send_file(file_path, mimetype='image/png')
         else:
+            print(f"Local file not found: {file_path}", flush=True)
             return "Dosya bulunamadı", 404
     except Exception as e:
-        print(f"Local file serving error: {e}")
+        print(f"Local file serving error: {e}", flush=True)
         return "Dosya servis hatası", 500
 
 @app.route('/generate_image/<int:process_id>', methods=['POST'])
@@ -717,7 +718,7 @@ def generate_image(process_id):
         })
         
     except Exception as e:
-        print(f"Error generating image for process {process_id}: {e}")
+        print(f"Error generating image for process {process_id}: {e}", flush=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/regenerate_image/<int:process_id>', methods=['POST'])
@@ -783,7 +784,7 @@ def regenerate_image(process_id):
         })
         
     except Exception as e:
-        print(f"Error regenerating image for process {process_id}: {e}")
+        print(f"Error regenerating image for process {process_id}: {e}", flush=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/debug_local_files')
@@ -934,7 +935,7 @@ TUMKAD Ekibi"""
         })
         
     except Exception as e:
-        print(f"Error sending WhatsApp notification for process {process_id}: {e}")
+        print(f"Error sending WhatsApp notification for process {process_id}: {e}", flush=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':

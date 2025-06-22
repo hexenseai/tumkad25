@@ -29,11 +29,11 @@ def get_participant_reference_images(participants):
                     'name': participant.name,
                     'image_url': signed_url
                 })
-                print(f"Signed URL created for {participant.name}: {signed_url[:50]}...")
+                print(f"Signed URL created for {participant.name}: {signed_url[:50]}...", flush=True)
             else:
-                print(f"Failed to create signed URL for {participant.name}")
+                print(f"Failed to create signed URL for {participant.name}", flush=True)
         else:
-            print(f"No valid GCS URL for {participant.name}: {participant.photo_path}")
+            print(f"No valid GCS URL for {participant.name}: {participant.photo_path}", flush=True)
     
     return reference_images
 
@@ -76,5 +76,5 @@ def apply_template_to_image_data(image_data):
         return image_data
         
     except Exception as e:
-        print(f"Template application error: {e}")
+        print(f"Template application error: {e}", flush=True)
         return image_data
