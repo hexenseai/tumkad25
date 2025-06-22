@@ -434,8 +434,18 @@ def generate_story():
             # Yeni generate_collaborative_story fonksiyonu hem hikaye hem görsel üretir
             story_text, story_visual_prompt, final_image_data = generate_collaborative_story(participants)
             
+            # Hata kontrolü
+            if story_text and story_text.startswith("HATA:"):
+                flash(f'Hikaye oluşturulurken hata oluştu: {story_text}', 'danger')
+                return render_template('generate_story.html', participants=[], process=None)
+            
             if not story_text:
                 flash('Hikaye oluşturulurken bir hata oluştu.', 'danger')
+                return render_template('generate_story.html', participants=[], process=None)
+            
+            # Görsel prompt hata kontrolü
+            if story_visual_prompt and story_visual_prompt.startswith("HATA:"):
+                flash(f'Görsel prompt oluşturulurken hata oluştu: {story_visual_prompt}', 'danger')
                 return render_template('generate_story.html', participants=[], process=None)
             
             generated_image_url = None
@@ -739,6 +749,13 @@ def regenerate_image(process_id):
             process.image_prompt, 
             participants
         )
+        
+        # Hata kontrolü
+        if story and story.startswith("HATA:"):
+            return jsonify({'success': False, 'error': f'Görsel yeniden üretimi hatası: {story}'}), 500
+        
+        if visual_prompt and visual_prompt.startswith("HATA:"):
+            return jsonify({'success': False, 'error': f'Görsel prompt hatası: {visual_prompt}'}), 500
         
         if not image_data:
             # Set status to failed if image regeneration fails

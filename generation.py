@@ -16,7 +16,7 @@ def call_openai_api(messages, model="gpt-4o", max_tokens=500, temperature=0.8):
     """
     try:
         if not OPENAI_API_KEY:
-            return None
+            return "HATA: OpenAI API anahtarı yapılandırılmamış"
             
         headers = {
             "Authorization": f"Bearer {OPENAI_API_KEY}",
@@ -40,12 +40,22 @@ def call_openai_api(messages, model="gpt-4o", max_tokens=500, temperature=0.8):
         if response.status_code == 200:
             return response.json()["choices"][0]["message"]["content"].strip()
         else:
-            print(f"OpenAI API error: {response.status_code} - {response.text}")
-            return None
+            error_msg = f"OpenAI API hatası: {response.status_code} - {response.text}"
+            print(error_msg)
+            return f"HATA: {error_msg}"
             
+    except requests.exceptions.Timeout:
+        error_msg = "OpenAI API zaman aşımı hatası"
+        print(error_msg)
+        return f"HATA: {error_msg}"
+    except requests.exceptions.ConnectionError:
+        error_msg = "OpenAI API bağlantı hatası"
+        print(error_msg)
+        return f"HATA: {error_msg}"
     except Exception as e:
-        print(f"OpenAI API call error: {e}")
-        return None
+        error_msg = f"OpenAI API çağrı hatası: {e}"
+        print(error_msg)
+        return f"HATA: {error_msg}"
 
 def call_gpt4_vision_api(messages, model="gpt-4o", max_tokens=1000, temperature=0.7):
     """
@@ -53,7 +63,7 @@ def call_gpt4_vision_api(messages, model="gpt-4o", max_tokens=1000, temperature=
     """
     try:
         if not OPENAI_API_KEY:
-            return None
+            return "HATA: OpenAI API anahtarı yapılandırılmamış"
             
         headers = {
             "Authorization": f"Bearer {OPENAI_API_KEY}",
@@ -77,12 +87,22 @@ def call_gpt4_vision_api(messages, model="gpt-4o", max_tokens=1000, temperature=
         if response.status_code == 200:
             return response.json()["choices"][0]["message"]["content"].strip()
         else:
-            print(f"GPT-4 Vision API error: {response.status_code} - {response.text}")
-            return None
+            error_msg = f"GPT-4 Vision API hatası: {response.status_code} - {response.text}"
+            print(error_msg)
+            return f"HATA: {error_msg}"
             
+    except requests.exceptions.Timeout:
+        error_msg = "GPT-4 Vision API zaman aşımı hatası"
+        print(error_msg)
+        return f"HATA: {error_msg}"
+    except requests.exceptions.ConnectionError:
+        error_msg = "GPT-4 Vision API bağlantı hatası"
+        print(error_msg)
+        return f"HATA: {error_msg}"
     except Exception as e:
-        print(f"GPT-4 Vision API call error: {e}")
-        return None
+        error_msg = f"GPT-4 Vision API çağrı hatası: {e}"
+        print(error_msg)
+        return f"HATA: {error_msg}"
 
 def generate_futuristic_selfie_with_image_edit(participants, story):
     """
@@ -99,7 +119,7 @@ def generate_individual_vision_story(participant):
     try:
         if not OPENAI_API_KEY:
             print("OpenAI API key not configured")
-            return f"{participant.name} teknoloji alanında uzmanlaşmış bir kadın mühendis olarak 2040 yılında {participant.future_impact} vizyonunu gerçekleştirmeyi planlıyor."
+            return f"HATA: OpenAI API anahtarı yapılandırılmamış"
         
         prompt = f"""
         Bu kişinin bilgilerini analiz ederek, 2035 yılında gerçekleştirmek istediği gelecek vizyonunun tanımlamasını oluştur. Neyi yapmak istediğini ve nasıl bir dönüşüm başlatmak istediğini *kişi bilgilerini* kullanarak detaylandır.
@@ -129,11 +149,18 @@ def generate_individual_vision_story(participant):
         ]
         
         story = call_openai_api(messages, max_tokens=500, temperature=0.8)
-        return story if story else f"{participant.name} teknoloji alanında uzmanlaşmış bir kadın mühendis olarak 2040 yılında {participant.future_impact} vizyonunu gerçekleştirmeyi planlıyor."
+        
+        # Hata kontrolü
+        if story and story.startswith("HATA:"):
+            print(f"❌ {participant.name} için hikaye oluşturulamadı: {story}")
+            return story
+        
+        return story if story else f"HATA: {participant.name} için hikaye oluşturulamadı"
         
     except Exception as e:
-        print(f"Individual vision story generation error: {e}")
-        return f"{participant.name} teknoloji alanında uzmanlaşmış bir profesyonel olarak 2040 yılında {participant.future_impact} hedefini gerçekleştirmeyi planlıyor."
+        error_msg = f"Bireysel vizyon hikayesi oluşturma hatası: {e}"
+        print(error_msg)
+        return f"HATA: {error_msg}"
 
 def create_collaborative_future_story(individual_stories):
     """
@@ -142,7 +169,14 @@ def create_collaborative_future_story(individual_stories):
     try:
         if not OPENAI_API_KEY:
             print("OpenAI API key not configured")
-            return "Katılımcılar birlikte geleceği şekillendiren bir teknoloji projesi geliştirdi."
+            return "HATA: OpenAI API anahtarı yapılandırılmamış"
+        
+        # Bireysel hikayelerde hata kontrolü
+        error_stories = [story for name, story in individual_stories if story.startswith("HATA:")]
+        if error_stories:
+            error_msg = f"Bireysel hikayelerde hatalar var: {', '.join(error_stories)}"
+            print(f"❌ {error_msg}")
+            return f"HATA: {error_msg}"
         
         stories_text = "\n\n".join([f"{name}:\n{story}" for name, story in individual_stories])
         
@@ -174,11 +208,18 @@ def create_collaborative_future_story(individual_stories):
         ]
         
         story = call_openai_api(messages, max_tokens=800, temperature=0.8)
-        return story if story else "Katılımcılar birlikte geleceği şekillendiren bir teknoloji projesi geliştirdi."
+        
+        # Hata kontrolü
+        if story and story.startswith("HATA:"):
+            print(f"❌ Ortak hikaye oluşturulamadı: {story}")
+            return story
+        
+        return story if story else "HATA: Ortak hikaye oluşturulamadı"
         
     except Exception as e:
-        print(f"Collaborative story generation error: {e}")
-        return "Katılımcılar birlikte geleceği şekillendiren bir teknoloji projesi geliştirdi."
+        error_msg = f"Ortak hikaye oluşturma hatası: {e}"
+        print(error_msg)
+        return f"HATA: {error_msg}"
 
 def create_story_visual_prompt(story):
     """
@@ -187,7 +228,12 @@ def create_story_visual_prompt(story):
     try:
         if not OPENAI_API_KEY:
             print("OpenAI API key not configured")
-            return "Photorealistic futuristic technology workspace in 2035, innovative project visualization, holographic displays, advanced equipment, professional lighting"
+            return "HATA: OpenAI API anahtarı yapılandırılmamış"
+        
+        # Hikaye hata kontrolü
+        if story.startswith("HATA:"):
+            print(f"❌ Hikaye hatası nedeniyle görsel prompt oluşturulamadı: {story}")
+            return f"HATA: {story}"
         
         prompt = f"""
         Bu hikayeden yola çıkarak, hikayeyi görsel bir karede anlatabilecek photorealistic gelecek vizyonunu iyi betimleyen bir prompt oluştur.
@@ -218,11 +264,18 @@ def create_story_visual_prompt(story):
         ]
         
         visual_prompt = call_openai_api(messages, max_tokens=300, temperature=0.7)
-        return visual_prompt if visual_prompt else "Photorealistic futuristic technology workspace in 2040, innovative project visualization, holographic displays, advanced equipment, professional lighting"
+        
+        # Hata kontrolü
+        if visual_prompt and visual_prompt.startswith("HATA:"):
+            print(f"❌ Görsel prompt oluşturulamadı: {visual_prompt}")
+            return visual_prompt
+        
+        return visual_prompt if visual_prompt else "HATA: Görsel prompt oluşturulamadı"
         
     except Exception as e:
-        print(f"Story visual prompt creation error: {e}")
-        return "Photorealistic futuristic technology workspace in 2040, innovative project visualization, holographic displays, advanced equipment, professional lighting"
+        error_msg = f"Hikaye görsel prompt oluşturma hatası: {e}"
+        print(error_msg)
+        return f"HATA: {error_msg}"
 
 def generate_image_with_dalle(prompt, aspect_ratio="1:1"):
     """
@@ -716,15 +769,33 @@ def generate_collaborative_story(participants, image_provider="imagen"):
         individual_stories = []
         for participant in participants:
             story = generate_individual_vision_story(participant)
+            
+            # Hata kontrolü
+            if story.startswith("HATA:"):
+                print(f"❌ Süreç durduruldu: {story}")
+                return story, None, None
+            
             individual_stories.append((participant.name, story))
             print(f"- {participant.name} için hikaye oluşturuldu")
         
         print("Adım 2: Ortak gelecek vizyonu hikayesi oluşturuluyor...")
         collaborative_story = create_collaborative_future_story(individual_stories)
+        
+        # Hata kontrolü
+        if collaborative_story.startswith("HATA:"):
+            print(f"❌ Süreç durduruldu: {collaborative_story}")
+            return collaborative_story, None, None
+        
         print("Ortak hikaye oluşturuldu")
         
         print("Adım 3: Hikaye görsel prompt'u oluşturuluyor...")
         story_visual_prompt = create_story_visual_prompt(collaborative_story)
+        
+        # Hata kontrolü
+        if story_visual_prompt.startswith("HATA:"):
+            print(f"❌ Süreç durduruldu: {story_visual_prompt}")
+            return collaborative_story, story_visual_prompt, None
+        
         print("Hikaye görsel prompt'u oluşturuldu")
         
         print(f"Adım 4: Hikaye görseli üretiliyor ({image_provider.upper()})...")
@@ -757,6 +828,7 @@ def generate_collaborative_story(participants, image_provider="imagen"):
             
         else:
             print("❌ Hikaye görseli üretimi başarısız")
+            return collaborative_story, story_visual_prompt, None
         
         print("Adım 5: OpenAI Images API ile futuristik grup selfie üretiliyor...")
         # Sadece grup selfie destekleniyor (2-4 katılımcı)
@@ -808,8 +880,9 @@ def generate_collaborative_story(participants, image_provider="imagen"):
             return collaborative_story, story_visual_prompt, None
             
     except Exception as e:
-        print(f"Collaborative story generation error: {e}")
-        return "Katılımcılar birlikte geleceği şekillendiren bir teknoloji projesi geliştirdi.", "Photorealistic futuristic technology workspace in 2040", None
+        error_msg = f"Ortak hikaye oluşturma hatası: {e}"
+        print(f"❌ {error_msg}")
+        return f"HATA: {error_msg}", None, None
 
 def regenerate_image_from_story(story_text, visual_prompt, participants=None, image_provider="imagen"):
     """
@@ -827,6 +900,16 @@ def regenerate_image_from_story(story_text, visual_prompt, participants=None, im
     """
     try:
         print("🔄 Görsel yeniden üretimi başlatılıyor...")
+        
+        # Hikaye hata kontrolü
+        if story_text.startswith("HATA:"):
+            print(f"❌ Hikaye hatası nedeniyle görsel yeniden üretimi durduruldu: {story_text}")
+            return story_text, visual_prompt, None
+        
+        # Prompt hata kontrolü
+        if visual_prompt.startswith("HATA:"):
+            print(f"❌ Prompt hatası nedeniyle görsel yeniden üretimi durduruldu: {visual_prompt}")
+            return story_text, visual_prompt, None
         
         # Local klasörleri oluştur
         import os
@@ -911,5 +994,6 @@ def regenerate_image_from_story(story_text, visual_prompt, participants=None, im
             return story_text, visual_prompt, None
             
     except Exception as e:
-        print(f"Görsel yeniden üretimi hatası: {e}")
+        error_msg = f"Görsel yeniden üretimi hatası: {e}"
+        print(f"❌ {error_msg}")
         return story_text, visual_prompt, None
