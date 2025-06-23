@@ -242,7 +242,6 @@ def create_story_visual_prompt(story):
         {story}
         
         Görsel Prompt Gereksinimleri:
-        - 2:3 oranında (portrait format)
         - Photorealistic, yüksek kaliteli.
         - Kişi isimlerine yer verme.
         - Gerçekçi yapıda, ilüstratif görsel oluştur.
@@ -331,8 +330,8 @@ def generate_image_with_imagen(prompt, aspect_ratio="1:1"):
     vertexai paketi kullanır.
     """
     try:
-        import vertexai.preview
-        from vertexai.generative_models import ImageGenerationModel
+        from vertexai.preview.vision_models import ImageGenerationModel
+        import vertexai
         
         # Google Cloud Project ID al
         GOOGLE_CLOUD_PROJECT = os.environ.get('GOOGLE_CLOUD_PROJECT')
@@ -341,7 +340,7 @@ def generate_image_with_imagen(prompt, aspect_ratio="1:1"):
             return None
         
         # Vertex AI'yi initialize et
-        vertexai.preview.init(
+        vertexai.init(
             project=GOOGLE_CLOUD_PROJECT,
             location="us-central1"
         )
@@ -355,7 +354,7 @@ def generate_image_with_imagen(prompt, aspect_ratio="1:1"):
             width, height = 1024, 1024
         
         # Imagen model'ini al
-        model = ImageGenerationModel.from_pretrained("imagen-4-preview")
+        model = ImageGenerationModel.from_pretrained("imagen-4.0-generate-preview-06-06")
         
         # Image generation parametreleri
         generation_config = {
