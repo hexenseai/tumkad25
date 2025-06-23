@@ -739,10 +739,10 @@ Requirements:
 - Preserve key facial features, expressions and characteristics from source images
 - Apply very minimal anti-aging: only slight smoothing while keeping natural skin texture and tone
 - Keep facial structure, eye shape, nose, mouth and other defining features identical to originals
+- NO GLASSES - participants should not wear any glasses, visors, or eyewear
 - Dress all participants in futuristic sci-fi clothing and accessories:
   * Sleek, form-fitting tech suits with subtle LED accents
   * Metallic or holographic fabric textures
-  * Smart glasses or visors with blue/cyan light effects
   * Futuristic jewelry or tech accessories
   * Professional yet advanced-looking attire suitable for 2040
 - Use a futuristic background with subtle sci-fi elements (holographic displays, ambient lighting)

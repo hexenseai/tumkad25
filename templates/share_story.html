@@ -451,21 +451,36 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function openInstagramApp() {
-    // Try to open Instagram app first
-    const instagramAppUrl = 'instagram://app';
-    const instagramWebUrl = 'https://www.instagram.com';
+    // Check if user is on mobile device
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
-    // Create a hidden iframe to try opening the app
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = instagramAppUrl;
-    document.body.appendChild(iframe);
-    
-    // Set a timeout to redirect to web version if app doesn't open
-    setTimeout(() => {
-        document.body.removeChild(iframe);
-        window.open(instagramWebUrl, '_blank');
-    }, 1000);
+    if (isMobile) {
+        // For mobile devices, try to open Instagram app
+        const instagramAppUrl = 'instagram://app';
+        const instagramWebUrl = 'https://www.instagram.com';
+        
+        // Create a temporary link element
+        const link = document.createElement('a');
+        link.href = instagramAppUrl;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        
+        // Try to open the app
+        link.click();
+        
+        // Remove the link element
+        setTimeout(() => {
+            document.body.removeChild(link);
+        }, 100);
+        
+        // Fallback to web version after a short delay
+        setTimeout(() => {
+            window.open(instagramWebUrl, '_blank');
+        }, 2000);
+    } else {
+        // For desktop, open Instagram web
+        window.open('https://www.instagram.com', '_blank');
+    }
 }
 </script>
 {% endblock %} 
