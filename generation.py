@@ -786,7 +786,7 @@ Create a photorealistic group selfie that shows these professionals together in 
         print(f"Group futuristic selfie generation with image edit error: {e}", flush=True)
         return None
 
-def generate_collaborative_story(participants, image_provider="dalle"):
+def generate_collaborative_story(participants, image_provider="imagen"):
     """
     Ana fonksiyon: Tüm adımları sırasıyla uygulayarak hikaye, görsel prompt ve görsel üretir.
     
