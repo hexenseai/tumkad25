@@ -172,25 +172,25 @@
             <div class="row mb-4">
                 <div class="col-md-3">
                     <div class="stats-card text-center">
-                        <div class="stats-number">{{ images|length }}</div>
+                        <div class="stats-number">{{ stats.total_images }}</div>
                         <div class="stats-label">Toplam Görsel</div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="stats-card text-center">
-                        <div class="stats-number">{{ "%.1f"|format(images|sum(attribute='size_mb')) }}</div>
+                        <div class="stats-number">{{ stats.total_size }}</div>
                         <div class="stats-label">Toplam Boyut (MB)</div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="stats-card text-center">
-                        <div class="stats-number">{{ images|selectattr('path', 'startswith', 'selfie_images')|list|length }}</div>
+                        <div class="stats-number">{{ stats.selfie_images }}</div>
                         <div class="stats-label">Selfie Görselleri</div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="stats-card text-center">
-                        <div class="stats-number">{{ images|selectattr('path', 'startswith', 'story_images')|list|length }}</div>
+                        <div class="stats-number">{{ stats.story_images }}</div>
                         <div class="stats-label">Hikaye Görselleri</div>
                     </div>
                 </div>

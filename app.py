@@ -1036,13 +1036,26 @@ def local_generated_images():
                         'full_path': str(file_path),
                         'size_mb': file_size_mb,
                         'created_at': creation_time,
-                        'url': url_for('local_file', folder='local_generated', filename=str(relative_path))
+                        'url': url_for('local_file', folder='generated', filename=str(relative_path))
                     })
     
     # Sort by creation time (newest first)
     images.sort(key=lambda x: x['created_at'], reverse=True)
     
-    return render_template('local_generated_images.html', images=images)
+    # Calculate statistics
+    total_images = len(images)
+    total_size = sum(img['size_mb'] for img in images)
+    selfie_images = len([img for img in images if img['path'].startswith('selfie_images')])
+    story_images = len([img for img in images if img['path'].startswith('story_images')])
+    
+    stats = {
+        'total_images': total_images,
+        'total_size': round(total_size, 1),
+        'selfie_images': selfie_images,
+        'story_images': story_images
+    }
+    
+    return render_template('local_generated_images.html', images=images, stats=stats)
 
 if __name__ == '__main__':
     with app.app_context():
