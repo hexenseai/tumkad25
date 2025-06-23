@@ -242,6 +242,7 @@ def create_story_visual_prompt(story):
         {story}
         
         Görsel Prompt Gereksinimleri:
+        - 2:3 oranında görsel oluştur.
         - Photorealistic, yüksek kaliteli.
         - Kişi isimlerine yer verme.
         - Gerçekçi yapıda, ilüstratif görsel oluştur.
@@ -324,7 +325,7 @@ def generate_image_with_dalle(prompt, aspect_ratio="1:1"):
         print(f"DALL-E image generation error: {e}", flush=True)
         return None
 
-def generate_image_with_imagen(prompt, aspect_ratio="1:1"):
+def generate_image_with_imagen(prompt, aspect_ratio="2:3"):
     """
     Google Vertex AI Imagen 4 Preview API kullanarak görsel üretir.
     vertexai paketi kullanır.
