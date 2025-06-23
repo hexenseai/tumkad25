@@ -703,6 +703,8 @@ def generate_image(process_id):
         # Update process with generated image URL and prompt
         process.generated_image_url = gcs_url
         process.status = 'completed'  # Set status to completed
+        # Reset WhatsApp notification sent flag since we have a new image
+        process.whatsapp_notification_sent = False
         if story and not process.story_text:
             process.story_text = story
         if story_visual_prompt and not process.image_prompt:
@@ -774,6 +776,8 @@ def regenerate_image(process_id):
         # Update process with new generated image URL
         process.generated_image_url = gcs_url
         process.status = 'completed'  # Set status to completed
+        # Reset WhatsApp notification sent flag since we have a new image
+        process.whatsapp_notification_sent = False
         db.session.commit()
         
         return jsonify({
@@ -923,10 +927,6 @@ TUMKAD Ekibi"""
                 'whatsapp_url': whatsapp_url
             })
         
-        # Mark as notification sent
-        process.whatsapp_notification_sent = True
-        db.session.commit()
-        
         return jsonify({
             'success': True,
             'message': 'WhatsApp notification prepared successfully',
@@ -936,6 +936,33 @@ TUMKAD Ekibi"""
         
     except Exception as e:
         print(f"Error sending WhatsApp notification for process {process_id}: {e}", flush=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/mark_whatsapp_sent/<int:process_id>', methods=['POST'])
+def mark_whatsapp_sent(process_id):
+    """
+    WhatsApp bildirimi gönderildi olarak işaretler.
+    """
+    if not session.get('admin_logged_in'):
+        return jsonify({'success': False, 'error': 'Yetkisiz erişim'}), 401
+    
+    try:
+        # Find the generation process
+        process = GenerationProcess.query.get(process_id)
+        if not process:
+            return jsonify({'success': False, 'error': 'Process not found'}), 404
+        
+        # Mark as notification sent
+        process.whatsapp_notification_sent = True
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'WhatsApp notification marked as sent'
+        })
+        
+    except Exception as e:
+        print(f"Error marking WhatsApp notification as sent for process {process_id}: {e}", flush=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':

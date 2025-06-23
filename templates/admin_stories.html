@@ -21,10 +21,41 @@
                 </div>
             </div>
             
+            <!-- Filtre Butonları -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-title mb-3">
+                                <i class="fas fa-filter"></i> Hikaye Filtreleri
+                            </h6>
+                            <div class="btn-group" role="group" aria-label="Story filters">
+                                <button type="button" class="btn btn-outline-primary filter-btn active" data-filter="all">
+                                    <i class="fas fa-list"></i> Tümü 
+                                    <span class="badge bg-primary ms-1" id="count-all">0</span>
+                                </button>
+                                <button type="button" class="btn btn-outline-success filter-btn" data-filter="completed">
+                                    <i class="fas fa-check-circle"></i> Tamamlanmış
+                                    <span class="badge bg-success ms-1" id="count-completed">0</span>
+                                </button>
+                                <button type="button" class="btn btn-outline-warning filter-btn" data-filter="processing">
+                                    <i class="fas fa-spinner"></i> İşleniyor
+                                    <span class="badge bg-warning ms-1" id="count-processing">0</span>
+                                </button>
+                                <button type="button" class="btn btn-outline-danger filter-btn" data-filter="failed">
+                                    <i class="fas fa-times-circle"></i> Başarısız
+                                    <span class="badge bg-danger ms-1" id="count-failed">0</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             {% if processes %}
-            <div class="row">
+            <div class="row" id="stories-container">
                 {% for process in processes %}
-                <div class="col-lg-6 mb-4">
+                <div class="col-lg-6 mb-4 story-card" data-status="{{ process.status }}">
                     <div class="card border-0 shadow h-100">
                         <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">
@@ -208,6 +239,50 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- WhatsApp Bildirimi Modalı -->
+                <div class="modal fade" id="whatsappModal-{{ process.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title">
+                                    <i class="fab fa-whatsapp"></i> WhatsApp Bildirimi
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> 
+                                    Aşağıdaki linklere tıklayarak katılımcılara WhatsApp mesajı gönderebilirsiniz.
+                                </div>
+                                
+                                <div id="whatsapp-links-{{ process.id }}">
+                                    <!-- WhatsApp linkleri buraya dinamik olarak eklenecek -->
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <h6>Paylaşım Linki:</h6>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="share-url-{{ process.id }}" readonly>
+                                        <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('share-url-{{ process.id }}')">
+                                            <i class="fas fa-copy"></i> Kopyala
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="fas fa-times"></i> İptal
+                                </button>
+                                <button type="button" class="btn btn-success confirm-whatsapp-btn" 
+                                        data-process-id="{{ process.id }}"
+                                        data-bs-dismiss="modal">
+                                    <i class="fas fa-check"></i> Tamam - Gönderim Başarılı
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 {% endfor %}
             </div>
             {% else %}
@@ -221,8 +296,112 @@
 {% endblock %}
 
 {% block extra_js %}
+<style>
+.filter-btn {
+    transition: all 0.3s ease;
+    border-radius: 20px !important;
+    margin-right: 5px;
+}
+
+.filter-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.filter-btn.active {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.story-card {
+    transition: all 0.3s ease;
+}
+
+.story-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+}
+
+.btn-group .btn {
+    border-radius: 20px !important;
+    margin-right: 5px;
+}
+
+.btn-group .btn:last-child {
+    margin-right: 0;
+}
+</style>
+
 <script>
+// Kopyalama fonksiyonu
+function copyToClipboard(elementId) {
+    const element = document.getElementById(elementId);
+    element.select();
+    element.setSelectionRange(0, 99999); // Mobile için
+    document.execCommand('copy');
+    
+    // Kopyalandı bildirimi
+    const button = element.nextElementSibling;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-check"></i> Kopyalandı!';
+    button.classList.remove('btn-outline-secondary');
+    button.classList.add('btn-success');
+    
+    setTimeout(() => {
+        button.innerHTML = originalText;
+        button.classList.remove('btn-success');
+        button.classList.add('btn-outline-secondary');
+    }, 2000);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    // Filtreleme fonksiyonları
+    function updateStoryCounts() {
+        const allCards = document.querySelectorAll('.story-card');
+        const completedCards = document.querySelectorAll('.story-card[data-status="completed"]');
+        const processingCards = document.querySelectorAll('.story-card[data-status="processing"]');
+        const failedCards = document.querySelectorAll('.story-card[data-status="failed"]');
+        
+        document.getElementById('count-all').textContent = allCards.length;
+        document.getElementById('count-completed').textContent = completedCards.length;
+        document.getElementById('count-processing').textContent = processingCards.length;
+        document.getElementById('count-failed').textContent = failedCards.length;
+    }
+    
+    function filterStories(filter) {
+        const cards = document.querySelectorAll('.story-card');
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        
+        // Aktif buton stilini güncelle
+        filterBtns.forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.getAttribute('data-filter') === filter) {
+                btn.classList.add('active');
+            }
+        });
+        
+        // Kartları göster/gizle
+        cards.forEach(card => {
+            const status = card.getAttribute('data-status');
+            if (filter === 'all' || status === filter) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+    
+    // Filtre butonları için event listener
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const filter = this.getAttribute('data-filter');
+            filterStories(filter);
+        });
+    });
+    
+    // Sayfa yüklendiğinde sayıları güncelle
+    updateStoryCounts();
+    
     // Debug butonu için event listener
     document.getElementById('debugImageUrls').addEventListener('click', function() {
         this.disabled = true;
@@ -425,20 +604,43 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Başarılı - WhatsApp linklerini göster
-                    let message = 'WhatsApp bildirimi hazırlandı!\n\n';
-                    message += 'Aşağıdaki linklere tıklayarak katılımcılara mesaj gönderebilirsiniz:\n\n';
+                    // Modal'ı aç ve linkleri göster
+                    const modal = new bootstrap.Modal(document.getElementById(`whatsappModal-${processId}`));
+                    const linksContainer = document.getElementById(`whatsapp-links-${processId}`);
+                    const shareUrlInput = document.getElementById(`share-url-${processId}`);
                     
+                    // Paylaşım URL'sini ayarla
+                    shareUrlInput.value = data.share_url;
+                    
+                    // WhatsApp linklerini oluştur
+                    let linksHtml = '';
                     data.whatsapp_links.forEach(link => {
-                        message += `${link.name} (${link.phone}):\n${link.whatsapp_url}\n\n`;
+                        linksHtml += `
+                            <div class="card mb-2">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="fas fa-user"></i> ${link.name}
+                                    </h6>
+                                    <p class="card-text text-muted">
+                                        <i class="fas fa-phone"></i> ${link.phone}
+                                    </p>
+                                    <a href="${link.whatsapp_url}" 
+                                       class="btn btn-success btn-sm" 
+                                       target="_blank"
+                                       onclick="markLinkAsClicked(this)">
+                                        <i class="fab fa-whatsapp"></i> WhatsApp'ta Aç
+                                    </a>
+                                </div>
+                            </div>
+                        `;
                     });
                     
-                    message += `\nPaylaşım URL'si: ${data.share_url}`;
+                    linksContainer.innerHTML = linksHtml;
+                    modal.show();
                     
-                    alert(message);
-                    
-                    // Sayfayı yenile
-                    location.reload();
+                    // Butonu geri aktif et
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fab fa-whatsapp"></i> WhatsApp Bildirimi Gönder';
                 } else {
                     // Hata
                     alert('WhatsApp bildirimi hazırlanırken hata oluştu: ' + data.error);
@@ -456,6 +658,50 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     });
+
+    // WhatsApp modal'ında "Tamam" butonuna tıklandığında
+    document.querySelectorAll('.confirm-whatsapp-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const processId = this.getAttribute('data-process-id');
+            
+            // WhatsApp bildirimi gönderildi olarak işaretle
+            fetch(`/mark_whatsapp_sent/${processId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Sayfayı yenile
+                    location.reload();
+                } else {
+                    console.error('WhatsApp durumu güncellenirken hata:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        });
+    });
+
+    // Link tıklandığında görsel geri bildirim
+    function markLinkAsClicked(linkElement) {
+        const originalText = linkElement.innerHTML;
+        linkElement.innerHTML = '<i class="fas fa-check"></i> Açıldı';
+        linkElement.classList.remove('btn-success');
+        linkElement.classList.add('btn-secondary');
+        linkElement.disabled = true;
+        
+        // 3 saniye sonra orijinal haline döndür
+        setTimeout(() => {
+            linkElement.innerHTML = originalText;
+            linkElement.classList.remove('btn-secondary');
+            linkElement.classList.add('btn-success');
+            linkElement.disabled = false;
+        }, 3000);
+    }
 });
 </script>
 {% endblock %} 
