@@ -355,18 +355,15 @@ def generate_image_with_imagen(prompt, aspect_ratio="1:1"):
         
         # Imagen model'ini al
         model = ImageGenerationModel.from_pretrained("imagen-4.0-generate-preview-06-06")
-        
-        # Image generation parametreleri
-        generation_config = {
-            "sample_count": 1,
-            "aspect_ratio": aspect_ratio,
-            "safety_filter_level": "block_some"
-        }
+    
         
         # Image üret
         response = model.generate_images(
             prompt=prompt,
-            generation_config=generation_config
+            number_of_images=1,
+            aspect_ratio=aspect_ratio,
+            safety_filter_level="",
+            add_watermark=True
         )
         
         # Response'dan image data'sını çıkar
