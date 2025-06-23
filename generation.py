@@ -362,27 +362,55 @@ def generate_image_with_imagen(prompt, aspect_ratio="1:1"):
             prompt=prompt,
             number_of_images=1,
             aspect_ratio=aspect_ratio,
-            safety_filter_level="",
+            safety_filter_level="block_some",
             add_watermark=True
         )
         
         # Response'dan image data'sını çıkar
-        if response and len(response) > 0:
-            # İlk image'ı al
-            image = response[0]
+        if response:
+            print(f"Debug: Response type: {type(response)}", flush=True)
+            print(f"Debug: Response attributes: {dir(response)}", flush=True)
             
-            # Image'ı bytes olarak al
-            if hasattr(image, 'image_bytes'):
-                return image.image_bytes
-            elif hasattr(image, '_image_bytes'):
-                return image._image_bytes
+            # Yeni API'de response doğrudan image listesi
+            if hasattr(response, 'images') and response.images:
+                print(f"Debug: Found images attribute with {len(response.images)} images", flush=True)
+                # İlk image'ı al
+                image = response.images[0]
+                
+                # Image'ı bytes olarak al
+                if hasattr(image, 'image_bytes'):
+                    return image.image_bytes
+                elif hasattr(image, '_image_bytes'):
+                    return image._image_bytes
+                else:
+                    # Alternatif olarak PIL Image'ı bytes'a çevir
+                    import io
+                    img_buffer = io.BytesIO()
+                    image.save(img_buffer, format='PNG')
+                    img_buffer.seek(0)
+                    return img_buffer.getvalue()
+            elif hasattr(response, '__iter__'):
+                print("Debug: Response is iterable", flush=True)
+                # Eğer response iterable ise, ilk elemanı al
+                try:
+                    image = next(iter(response))
+                    print(f"Debug: First image type: {type(image)}", flush=True)
+                    if hasattr(image, 'image_bytes'):
+                        return image.image_bytes
+                    elif hasattr(image, '_image_bytes'):
+                        return image._image_bytes
+                    else:
+                        # Alternatif olarak PIL Image'ı bytes'a çevir
+                        import io
+                        img_buffer = io.BytesIO()
+                        image.save(img_buffer, format='PNG')
+                        img_buffer.seek(0)
+                        return img_buffer.getvalue()
+                except StopIteration:
+                    print("Debug: No images in iterable response", flush=True)
+                    pass
             else:
-                # Alternatif olarak PIL Image'ı bytes'a çevir
-                import io
-                img_buffer = io.BytesIO()
-                image.save(img_buffer, format='PNG')
-                img_buffer.seek(0)
-                return img_buffer.getvalue()
+                print("Debug: Response has no images attribute and is not iterable", flush=True)
         
         print("No image data found in Vertex AI response", flush=True)
         return None
