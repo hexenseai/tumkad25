@@ -23,8 +23,19 @@
                         </div>
                     </div>
                     <button type="button" class="btn btn-outline-secondary mb-3" id="addFieldBtn">+ Katılımcı Ekle</button>
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-info btn-lg">
+                    
+                    <!-- Loading state div -->
+                    <div id="loadingState" class="text-center" style="display: none;">
+                        <div class="alert alert-info">
+                            <i class="fas fa-spinner fa-spin me-2"></i>
+                            <strong>Gelecek vizyonunuz hazırlanıyor, lütfen bekleyin...</strong>
+                            <br>
+                            <small class="text-muted">Üretim 2-3 dakika sürebilir</small>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid" id="submitButtonContainer">
+                        <button type="submit" class="btn btn-info btn-lg" id="submitButton">
                             <i class="fas fa-magic"></i> Üretimi Başlat
                         </button>
                     </div>
@@ -198,6 +209,14 @@ document.addEventListener('DOMContentLoaded', function() {
             input.value = values[i];
         });
 
+        // Loading state'i göster ve submit butonunu gizle
+        document.getElementById('loadingState').style.display = 'block';
+        document.getElementById('submitButtonContainer').style.display = 'none';
+        
+        // Katılımcı ekleme butonunu da gizle
+        document.getElementById('addFieldBtn').style.display = 'none';
+
+        // Formu gönder
         generateForm.submit();
     });
 
