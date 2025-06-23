@@ -726,26 +726,24 @@ def generate_group_futuristic_selfie_with_image_edit(participants, story):
         data = {
             'model': 'gpt-image-1',
             'quality': 'high',
-            'prompt': f"""Create a realistic group selfie showing these {len(participant_names)} people together in 2040.
+            'prompt': f"""Create a realistic group selfie showing these {len(participant_names)} people together.
 
 Participants: {names_text}
 
 Requirements:
 - Create a natural group selfie showing all participants together
-- Set the scene in 2040 (subtle future indication only)
-- Apply subtle anti-aging effects: reduce fine lines and wrinkles by 20-30%, smooth skin texture slightly, maintain natural skin tone and features
-- Keep everyone looking naturally themselves - don't over-process or make them look artificial
-- No futuristic accessories, glasses, or tech jewelry
-- Use plain, clean background
-- Maintain highly realistic appearance of all people
-- Professional but approachable atmosphere
-- High-quality, detailed image with realistic skin textures and facial features
-- Everyone should look confident and successful but natural
-- Group composition should be natural and engaging
-- Ensure all participants are clearly visible and well-integrated
-- Focus on realistic human appearance
-- Keep the background simple and clean
-- Output in 16:9 aspect ratio
+- Maintain strong facial similarity with original participant photos
+- Preserve key facial features, expressions and characteristics from source images
+- Apply very minimal anti-aging: only slight smoothing while keeping natural skin texture and tone
+- Keep facial structure, eye shape, nose, mouth and other defining features identical to originals
+- No futuristic accessories or modifications that could alter facial recognition
+- Use plain, clean background to keep focus on faces
+- Maintain photorealistic quality with accurate facial details
+- Ensure faces are well-lit and clearly visible
+- Natural group composition where all faces are unobstructed
+- Keep facial angles and expressions natural and recognizable
+- Prioritize facial authenticity over aesthetic enhancements
+- Preserve skin tone, complexion and unique facial characteristics
 
 Story context: {story}
 

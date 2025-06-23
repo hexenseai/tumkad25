@@ -9,6 +9,7 @@ from PIL import Image
 import io
 from gcs import upload_to_gcs, get_gcs_file_url, delete_from_gcs, download_from_gcs
 import tempfile
+from pathlib import Path
 
 from utils import normalize_phone, apply_template_to_image_data
 from generation import generate_collaborative_story, regenerate_image_from_story
@@ -685,10 +686,10 @@ def delete_story(process_id):
         print(f"Story deletion error: {e}", flush=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/local_files/<folder>/<filename>')
+@app.route('/local_files/<folder>/<path:filename>')
 def local_file(folder, filename):
     """
-    Yerel dosyaları servis eder.
+    Yerel dosyaları servis eder. Alt klasörleri de destekler.
     """
     try:
         if folder == 'uploads':
@@ -1006,6 +1007,42 @@ def mark_whatsapp_sent(process_id):
     except Exception as e:
         print(f"Error marking WhatsApp notification as sent for process {process_id}: {e}", flush=True)
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/local_generated_images')
+def local_generated_images():
+    """List and display all images in the local_generated directory"""
+    local_generated_path = Path('local_generated')
+    images = []
+    
+    if local_generated_path.exists():
+        # Walk through all subdirectories
+        for root, dirs, files in os.walk(local_generated_path):
+            for file in files:
+                # Check if file is an image
+                if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')):
+                    file_path = Path(root) / file
+                    relative_path = file_path.relative_to(local_generated_path)
+                    
+                    # Get file size
+                    file_size = file_path.stat().st_size
+                    file_size_mb = round(file_size / (1024 * 1024), 2)
+                    
+                    # Get creation time
+                    creation_time = datetime.fromtimestamp(file_path.stat().st_ctime)
+                    
+                    images.append({
+                        'filename': file,
+                        'path': str(relative_path),
+                        'full_path': str(file_path),
+                        'size_mb': file_size_mb,
+                        'created_at': creation_time,
+                        'url': url_for('local_file', folder='local_generated', filename=str(relative_path))
+                    })
+    
+    # Sort by creation time (newest first)
+    images.sort(key=lambda x: x['created_at'], reverse=True)
+    
+    return render_template('local_generated_images.html', images=images)
 
 if __name__ == '__main__':
     with app.app_context():
