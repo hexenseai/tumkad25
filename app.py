@@ -166,7 +166,30 @@ def admin_login():
 def admin():
     if not session.get('admin_logged_in'):
         return redirect(url_for('admin_login'))
+    
     participants = Participant.query.order_by(Participant.created_at.desc()).all()
+    
+    # Her katılımcı için hikaye durumunu kontrol et
+    for participant in participants:
+        # Bu katılımcının yer aldığı hikaye süreçlerini bul
+        processes = GenerationProcess.query.filter(
+            GenerationProcess.participant_ids.contains(str(participant.id))
+        ).all()
+        
+        # Hikaye durumunu belirle
+        participant.has_story = False
+        participant.story_status = "Hikaye Yok"
+        
+        for process in processes:
+            if process.status == 'completed' and process.generated_image_url:
+                participant.has_story = True
+                participant.story_status = "✅ Hikaye Var"
+                break
+            elif process.status == 'processing':
+                participant.story_status = "⏳ İşleniyor"
+            elif process.status == 'failed':
+                participant.story_status = "❌ Başarısız"
+    
     return render_template('admin.html', participants=participants)
 
 @app.route('/slides')

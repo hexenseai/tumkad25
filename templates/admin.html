@@ -25,7 +25,7 @@
 
         <!-- Statistics Cards -->
         <div class="row mb-4">
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <div class="card bg-primary text-white">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
@@ -40,7 +40,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <div class="card bg-success text-white">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
@@ -55,7 +55,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <div class="card bg-warning text-white">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
@@ -70,8 +70,23 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <div class="card bg-info text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="card-title">{{ participants|selectattr('has_story', 'equalto', true)|list|length }}</h4>
+                                <p class="card-text">Hikayesi Olan</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-book fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-secondary text-white">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
                             <div>
@@ -80,6 +95,21 @@
                             </div>
                             <div class="align-self-center">
                                 <i class="fas fa-camera fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-dark text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="card-title">{{ participants|selectattr('has_story', 'equalto', false)|list|length }}</h4>
+                                <p class="card-text">Hikayesi Olmayan</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-times-circle fa-2x"></i>
                             </div>
                         </div>
                     </div>
@@ -104,6 +134,7 @@
                                 <th>Email</th>
                                 <th>Meslek</th>
                                 <th>Sektör</th>
+                                <th>Hikaye Durumu</th>
                                 <th>Kayıt Tarihi</th>
                                 <th>İşlemler</th>
                             </tr>
@@ -140,6 +171,11 @@
                                 <td>{{ participant.email or '-' }}</td>
                                 <td>{{ participant.profession or '-' }}</td>
                                 <td>{{ participant.sector or '-' }}</td>
+                                <td>
+                                    <span class="badge {% if participant.has_story %}bg-success{% elif 'İşleniyor' in participant.story_status %}bg-warning{% elif 'Başarısız' in participant.story_status %}bg-danger{% else %}bg-secondary{% endif %}">
+                                        {{ participant.story_status }}
+                                    </span>
+                                </td>
                                 <td>{{ participant.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
                                 <td>
                                     <div class="btn-group" role="group">
