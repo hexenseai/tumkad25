@@ -331,7 +331,7 @@ def generate_image_with_imagen(prompt, aspect_ratio="1:1"):
     vertexai paketi kullanır.
     """
     try:
-        import vertexai
+        import vertexai.preview
         from vertexai.generative_models import ImageGenerationModel
         
         # Google Cloud Project ID al
@@ -341,7 +341,7 @@ def generate_image_with_imagen(prompt, aspect_ratio="1:1"):
             return None
         
         # Vertex AI'yi initialize et
-        vertexai.init(
+        vertexai.preview.init(
             project=GOOGLE_CLOUD_PROJECT,
             location="us-central1"
         )
