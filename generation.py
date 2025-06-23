@@ -250,10 +250,13 @@ def create_story_visual_prompt(story):
         - Hikayenin içeriğini ve vizyonunu illustre eden görsel elementler
         - Teknoloji ile toplumsal ilerleme ve yenilik teması
         - Projenin dünya üzerindeki etkisini gösteren görsel ipuçları.
-        - Dramatik aydınlatma ve kompozisyon.
+        - HİKAYE ÖN PLANDA OLMALI, ışıklı süslemeler çok yoğun olmamalı
         - İnovatif ve çığır açan teknoloji atmosferi.
         - Görselin önemli detayları üst bölümde görselin 2/3 kısmını kaplayacak şekilde olsun.
         - Kişisel detaylarla çok ilgilenme, odak hikayenin vizyonu ve yaşam ile topluma etkisi olmalı.
+        - Aydınlatma ve ışık efektleri hikayeyi destekleyici olmalı, hikayeyi gölgede bırakmamalı
+        - Görsel kompozisyon hikayenin ana mesajını ön plana çıkarmalı
+        - Futuristik elementler hikayenin anlatımını güçlendirmeli, dikkat dağıtmamalı
         
         Prompt'u İngilizce olarak oluştur ve sadece görsel betimlemeleri içersin.
         """
@@ -726,7 +729,7 @@ def generate_group_futuristic_selfie_with_image_edit(participants, story):
         data = {
             'model': 'gpt-image-1',
             'quality': 'high',
-            'prompt': f"""Create a realistic group selfie showing these {len(participant_names)} people together.
+            'prompt': f"""Create a realistic group selfie showing these {len(participant_names)} people together in futuristic sci-fi attire.
 
 Participants: {names_text}
 
@@ -736,18 +739,24 @@ Requirements:
 - Preserve key facial features, expressions and characteristics from source images
 - Apply very minimal anti-aging: only slight smoothing while keeping natural skin texture and tone
 - Keep facial structure, eye shape, nose, mouth and other defining features identical to originals
-- No futuristic accessories or modifications that could alter facial recognition
-- Use plain, clean background to keep focus on faces
+- Dress all participants in futuristic sci-fi clothing and accessories:
+  * Sleek, form-fitting tech suits with subtle LED accents
+  * Metallic or holographic fabric textures
+  * Smart glasses or visors with blue/cyan light effects
+  * Futuristic jewelry or tech accessories
+  * Professional yet advanced-looking attire suitable for 2040
+- Use a futuristic background with subtle sci-fi elements (holographic displays, ambient lighting)
 - Maintain photorealistic quality with accurate facial details
 - Ensure faces are well-lit and clearly visible
 - Natural group composition where all faces are unobstructed
 - Keep facial angles and expressions natural and recognizable
-- Prioritize facial authenticity over aesthetic enhancements
+- Prioritize facial authenticity while adding futuristic clothing
 - Preserve skin tone, complexion and unique facial characteristics
+- Add subtle sci-fi lighting effects to enhance the futuristic atmosphere
 
 Story context: {story}
 
-Create a photorealistic group selfie that shows these professionals together, with only subtle indication they are in the future, maintaining their natural appearance with gentle anti-aging effects."""
+Create a photorealistic group selfie that shows these professionals together in 2040, wearing advanced sci-fi attire while maintaining their natural facial appearance with gentle anti-aging effects."""
         }
         
         response = requests.post(
@@ -777,7 +786,7 @@ Create a photorealistic group selfie that shows these professionals together, wi
         print(f"Group futuristic selfie generation with image edit error: {e}", flush=True)
         return None
 
-def generate_collaborative_story(participants, image_provider="imagen"):
+def generate_collaborative_story(participants, image_provider="dalle"):
     """
     Ana fonksiyon: Tüm adımları sırasıyla uygulayarak hikaye, görsel prompt ve görsel üretir.
     
@@ -822,7 +831,7 @@ def generate_collaborative_story(participants, image_provider="imagen"):
         print("Hikaye görsel prompt'u oluşturuldu", flush=True)
         
         print(f"Adım 4: Hikaye görseli üretiliyor ({image_provider.upper()})...", flush=True)
-        story_image_data = generate_image_unified(story_visual_prompt, "1:1", image_provider)
+        story_image_data = generate_image_unified(story_visual_prompt, "2:3", image_provider)
         if story_image_data:
             print("Hikaye görseli üretildi", flush=True)
             
