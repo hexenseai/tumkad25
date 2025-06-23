@@ -141,6 +141,30 @@
     border-bottom: none;
 }
 
+.instagram-instructions {
+    background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.instagram-instructions h6 {
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.instagram-instructions ol {
+    text-align: left;
+    margin: 0;
+    padding-left: 20px;
+}
+
+.instagram-instructions li {
+    margin-bottom: 8px;
+}
+
 .share-actions {
     padding: 20px;
     display: flex;
@@ -167,26 +191,6 @@
     box-shadow: 0 5px 15px rgba(0,0,0,0.2);
 }
 
-.instagram-btn {
-    background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
-    color: white;
-}
-
-.whatsapp-btn {
-    background: #25D366;
-    color: white;
-}
-
-.facebook-btn {
-    background: #1877F2;
-    color: white;
-}
-
-.twitter-btn {
-    background: #1DA1F2;
-    color: white;
-}
-
 .download-btn {
     background: #28a745;
     color: white;
@@ -194,6 +198,11 @@
 
 .copy-btn {
     background: #6c757d;
+    color: white;
+}
+
+.instagram-app-btn {
+    background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
     color: white;
 }
 
@@ -277,39 +286,37 @@
                 <h6><i class="fas fa-book"></i> Hikaye:</h6>
                 <p>{{ process.story_text }}</p>
             </div>
+            
+            <div class="instagram-instructions">
+                <h6><i class="fab fa-instagram"></i> Instagram'da Paylaşmak İçin:</h6>
+                <ol>
+                    <li>Görseli indirin</li>
+                    <li>Metni kopyalayın</li>
+                    <li>Instagram uygulamasını açın (butona tıklayın)</li>
+                    <li>Yeni gönderi oluşturun</li>
+                    <li>İndirilen görseli ekleyin</li>
+                    <li>Kopyaladığınız metni yapıştırın</li>
+                    <li>Paylaşın! 📸</li>
+                </ol>
+            </div>
         </div>
         
         <div class="share-actions">
             {% if process.generated_image_url %}
-            <button class="share-btn instagram-btn" onclick="shareToInstagram()">
-                <i class="fab fa-instagram"></i>
-                Instagram
-            </button>
-            
-            <button class="share-btn whatsapp-btn" onclick="shareToWhatsApp()">
-                <i class="fab fa-whatsapp"></i>
-                WhatsApp
-            </button>
-            
-            <button class="share-btn facebook-btn" onclick="shareToFacebook()">
-                <i class="fab fa-facebook-f"></i>
-                Facebook
-            </button>
-            
-            <button class="share-btn twitter-btn" onclick="shareToTwitter()">
-                <i class="fab fa-twitter"></i>
-                Twitter
-            </button>
-            
             <button class="share-btn download-btn" onclick="downloadImage()">
                 <i class="fas fa-download"></i>
-                İndir
+                Görseli İndir
             </button>
             {% endif %}
             
-            <button class="share-btn copy-btn" onclick="copyLink()">
-                <i class="fas fa-link"></i>
-                Link Kopyala
+            <button class="share-btn copy-btn" onclick="copyStoryText()">
+                <i class="fas fa-copy"></i>
+                Metni Kopyala
+            </button>
+            
+            <button class="share-btn instagram-app-btn" onclick="openInstagramApp()">
+                <i class="fab fa-instagram"></i>
+                Instagram'ı Aç
             </button>
         </div>
     </div>
@@ -325,40 +332,6 @@
 
 {% block extra_js %}
 <script>
-function shareToInstagram() {
-    const imageUrl = "{{ url_for('get_story_image', token=process.share_token, _external=True) }}";
-    const text = "TUMKAD etkinliğinde AI destekli gelecek vizyonu hikayesi oluşturuldu! 🚀 #TUMKAD #GelecekVizyonu #AI";
-    
-    // Instagram için daha iyi paylaşım stratejisi
-    const shareText = `${text}\n\nHikaye: {{ process.story_text[:100] }}...\n\nGörsel: ${imageUrl}\n\nPaylaşım linki: ${window.location.href}`;
-    copyToClipboard(shareText);
-    
-    // Kullanıcıya daha detaylı bilgi ver
-    const message = `Instagram paylaşımı için hazırlandı! 📸\n\n1. Kopyalanan metni Instagram'da paylaşın\n2. Görseli manuel olarak ekleyin\n3. Hashtag'leri kullanın: #TUMKAD #GelecekVizyonu #AI`;
-    alert(message);
-}
-
-function shareToWhatsApp() {
-    const imageUrl = "{{ url_for('get_story_image', token=process.share_token, _external=True) }}";
-    const text = "TUMKAD etkinliğinde AI destekli gelecek vizyonu hikayesi oluşturuldu! 🚀";
-    const url = `https://wa.me/?text=${encodeURIComponent(text + '\n\n' + imageUrl)}`;
-    window.open(url, '_blank');
-}
-
-function shareToFacebook() {
-    const imageUrl = "{{ url_for('get_story_image', token=process.share_token, _external=True) }}";
-    const text = "TUMKAD etkinliğinde AI destekli gelecek vizyonu hikayesi oluşturuldu! 🚀";
-    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(imageUrl)}&quote=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
-}
-
-function shareToTwitter() {
-    const imageUrl = "{{ url_for('get_story_image', token=process.share_token, _external=True) }}";
-    const text = "TUMKAD etkinliğinde AI destekli gelecek vizyonu hikayesi oluşturuldu! 🚀 #TUMKAD #GelecekVizyonu #AI";
-    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(imageUrl)}`;
-    window.open(url, '_blank');
-}
-
 function downloadImage() {
     const imageUrl = "{{ url_for('get_story_image', token=process.share_token, _external=True) }}";
     const link = document.createElement('a');
@@ -369,10 +342,15 @@ function downloadImage() {
     document.body.removeChild(link);
 }
 
-function copyLink() {
-    const currentUrl = window.location.href;
-    copyToClipboard(currentUrl);
-    alert('Paylaşım linki kopyalandı!');
+function copyStoryText() {
+    const storyText = `TÜMKAD 23 Haziran Dünya Kadın Mühendisler Günü Konferansı'nda 2035 yılına bir anı bıraktınız💫🎉
+
+{{ process.story_text }}
+
+#23HaziranDünyaKadınMühendislerGünüKonferansı #TÜMKAD2025 #mühendislikteişbirliğigücü #TogetherWeEngineer #23JuneWomenEngineersDay #INWED25`;
+    
+    copyToClipboard(storyText);
+    alert('Hikaye metni kopyalandı! Instagram\'da paylaşabilirsiniz.');
 }
 
 function copyToClipboard(text) {
@@ -469,5 +447,23 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+function openInstagramApp() {
+    // Try to open Instagram app first
+    const instagramAppUrl = 'instagram://app';
+    const instagramWebUrl = 'https://www.instagram.com';
+    
+    // Create a hidden iframe to try opening the app
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = instagramAppUrl;
+    document.body.appendChild(iframe);
+    
+    // Set a timeout to redirect to web version if app doesn't open
+    setTimeout(() => {
+        document.body.removeChild(iframe);
+        window.open(instagramWebUrl, '_blank');
+    }, 1000);
+}
 </script>
 {% endblock %} 
