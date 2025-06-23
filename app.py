@@ -171,11 +171,11 @@ def admin():
 
 @app.route('/slides')
 def slides():
-    # Get all completed stories from GenerationProcess
+    # Get all completed stories from GenerationProcess, sorted by newest first
     processes = GenerationProcess.query.filter(
         GenerationProcess.generated_image_url.isnot(None),
         GenerationProcess.status == 'completed'
-    ).all()
+    ).order_by(GenerationProcess.created_at.desc()).all()
     
     # Create a flat list of all story data
     all_stories = []
