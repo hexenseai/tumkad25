@@ -30,31 +30,53 @@
                                 <i class="fas fa-filter"></i> Hikaye Filtreleri
                             </h6>
                             <div class="btn-group" role="group" aria-label="Story filters">
-                                <button type="button" class="btn btn-outline-primary filter-btn active" data-filter="all">
+                                <a href="{{ url_for('admin_stories', status='all') }}" 
+                                   class="btn btn-outline-primary filter-btn {% if current_filter == 'all' %}active{% endif %}">
                                     <i class="fas fa-list"></i> Tümü 
-                                    <span class="badge bg-primary ms-1" id="count-all">0</span>
-                                </button>
-                                <button type="button" class="btn btn-outline-success filter-btn" data-filter="completed">
+                                    <span class="badge bg-primary ms-1">{{ stats.all }}</span>
+                                </a>
+                                <a href="{{ url_for('admin_stories', status='completed') }}" 
+                                   class="btn btn-outline-success filter-btn {% if current_filter == 'completed' %}active{% endif %}">
                                     <i class="fas fa-check-circle"></i> Tamamlanmış
-                                    <span class="badge bg-success ms-1" id="count-completed">0</span>
-                                </button>
-                                <button type="button" class="btn btn-outline-warning filter-btn" data-filter="processing">
+                                    <span class="badge bg-success ms-1">{{ stats.completed }}</span>
+                                </a>
+                                <a href="{{ url_for('admin_stories', status='completed-no-whatsapp') }}" 
+                                   class="btn btn-outline-info filter-btn {% if current_filter == 'completed-no-whatsapp' %}active{% endif %}">
+                                    <i class="fas fa-share-alt"></i> WhatsApp Gönderilmemiş
+                                    <span class="badge bg-info ms-1">{{ stats.completed_no_whatsapp }}</span>
+                                </a>
+                                <a href="{{ url_for('admin_stories', status='processing') }}" 
+                                   class="btn btn-outline-warning filter-btn {% if current_filter == 'processing' %}active{% endif %}">
                                     <i class="fas fa-spinner"></i> İşleniyor
-                                    <span class="badge bg-warning ms-1" id="count-processing">0</span>
-                                </button>
-                                <button type="button" class="btn btn-outline-danger filter-btn" data-filter="failed">
+                                    <span class="badge bg-warning ms-1">{{ stats.processing }}</span>
+                                </a>
+                                <a href="{{ url_for('admin_stories', status='failed') }}" 
+                                   class="btn btn-outline-danger filter-btn {% if current_filter == 'failed' %}active{% endif %}">
                                     <i class="fas fa-times-circle"></i> Başarısız
-                                    <span class="badge bg-danger ms-1" id="count-failed">0</span>
-                                </button>
+                                    <span class="badge bg-danger ms-1">{{ stats.failed }}</span>
+                                </a>
+                            </div>
+                            
+                            <!-- Sayfa başına kayıt sayısı seçici -->
+                            <div class="mt-3">
+                                <label for="perPageSelect" class="form-label">
+                                    <i class="fas fa-list-ol"></i> Sayfa Başına Kayıt:
+                                </label>
+                                <select class="form-select form-select-sm d-inline-block w-auto" id="perPageSelect">
+                                    <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                                    <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                                </select>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
             
-            {% if processes %}
+            {% if processes.items %}
             <div class="row" id="stories-container">
-                {% for process in processes %}
+                {% for process in processes.items %}
                 <div class="col-lg-6 mb-4 story-card" data-status="{{ process.status }}">
                     <div class="card border-0 shadow h-100">
                         <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
@@ -79,7 +101,7 @@
                                 
                                 <!-- WhatsApp Notification Badge -->
                                 {% if process.whatsapp_notification_sent %}
-                                <span class="badge bg-success me-2">
+                                <span class="badge bg-success me-2 whatsapp-sent-badge">
                                     <i class="fab fa-whatsapp"></i> Bildirim Gönderildi
                                 </span>
                                 {% endif %}
@@ -285,6 +307,77 @@
                 </div>
                 {% endfor %}
             </div>
+            
+            <!-- Sayfalama Kontrolleri -->
+            {% if processes.pages > 1 %}
+            <div class="row mt-4">
+                <div class="col-12">
+                    <nav aria-label="Hikaye sayfalama">
+                        <ul class="pagination justify-content-center">
+                            <!-- Önceki sayfa -->
+                            {% if processes.has_prev %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('admin_stories', status=current_filter, page=processes.prev_num) }}">
+                                    <i class="fas fa-chevron-left"></i> Önceki
+                                </a>
+                            </li>
+                            {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">
+                                    <i class="fas fa-chevron-left"></i> Önceki
+                                </span>
+                            </li>
+                            {% endif %}
+                            
+                            <!-- Sayfa numaraları -->
+                            {% for page_num in processes.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                                {% if page_num %}
+                                    {% if page_num != processes.page %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ url_for('admin_stories', status=current_filter, page=page_num) }}">
+                                            {{ page_num }}
+                                        </a>
+                                    </li>
+                                    {% else %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ page_num }}</span>
+                                    </li>
+                                    {% endif %}
+                                {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            <!-- Sonraki sayfa -->
+                            {% if processes.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('admin_stories', status=current_filter, page=processes.next_num) }}">
+                                    Sonraki <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+                            {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">
+                                    Sonraki <i class="fas fa-chevron-right"></i>
+                                </span>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    
+                    <!-- Sayfa bilgisi -->
+                    <div class="text-center text-muted">
+                        <small>
+                            Sayfa {{ processes.page }} / {{ processes.pages }} 
+                            (Toplam {{ processes.total }} kayıt, sayfa başına {{ per_page }} kayıt)
+                        </small>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
             {% else %}
             <div class="alert alert-info">
                 <i class="fas fa-info-circle"></i> Henüz hiç hikaye oluşturulmamış.
@@ -355,53 +448,6 @@ function copyToClipboard(elementId) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Filtreleme fonksiyonları
-    function updateStoryCounts() {
-        const allCards = document.querySelectorAll('.story-card');
-        const completedCards = document.querySelectorAll('.story-card[data-status="completed"]');
-        const processingCards = document.querySelectorAll('.story-card[data-status="processing"]');
-        const failedCards = document.querySelectorAll('.story-card[data-status="failed"]');
-        
-        document.getElementById('count-all').textContent = allCards.length;
-        document.getElementById('count-completed').textContent = completedCards.length;
-        document.getElementById('count-processing').textContent = processingCards.length;
-        document.getElementById('count-failed').textContent = failedCards.length;
-    }
-    
-    function filterStories(filter) {
-        const cards = document.querySelectorAll('.story-card');
-        const filterBtns = document.querySelectorAll('.filter-btn');
-        
-        // Aktif buton stilini güncelle
-        filterBtns.forEach(btn => {
-            btn.classList.remove('active');
-            if (btn.getAttribute('data-filter') === filter) {
-                btn.classList.add('active');
-            }
-        });
-        
-        // Kartları göster/gizle
-        cards.forEach(card => {
-            const status = card.getAttribute('data-status');
-            if (filter === 'all' || status === filter) {
-                card.style.display = 'block';
-            } else {
-                card.style.display = 'none';
-            }
-        });
-    }
-    
-    // Filtre butonları için event listener
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const filter = this.getAttribute('data-filter');
-            filterStories(filter);
-        });
-    });
-    
-    // Sayfa yüklendiğinde sayıları güncelle
-    updateStoryCounts();
-    
     // Debug butonu için event listener
     document.getElementById('debugImageUrls').addEventListener('click', function() {
         this.disabled = true;
@@ -437,6 +483,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.disabled = false;
                 this.innerHTML = '<i class="fas fa-bug"></i> Görsel URL\'lerini Kontrol Et';
             });
+    });
+
+    // Sayfa başına kayıt sayısı değiştiğinde
+    document.getElementById('perPageSelect').addEventListener('change', function() {
+        const newPerPage = this.value;
+        const currentUrl = new URL(window.location);
+        currentUrl.searchParams.set('per_page', newPerPage);
+        currentUrl.searchParams.set('page', '1'); // İlk sayfaya dön
+        window.location.href = currentUrl.toString();
     });
 
     // Detayları Göster/Gizle butonları için ikon değişimi

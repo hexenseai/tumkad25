@@ -585,18 +585,60 @@ def admin_stories():
     if not session.get('admin_logged_in'):
         return redirect(url_for('admin_login'))
     
-    # Tüm hikaye süreçlerini getir
-    processes = GenerationProcess.query.order_by(GenerationProcess.created_at.desc()).all()
+    # Sayfalama parametreleri
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)  # Sayfa başına 20 kayıt
+    status_filter = request.args.get('status', 'all')
+    
+    # Filtreleme sorgusu
+    query = GenerationProcess.query
+    
+    if status_filter == 'completed':
+        query = query.filter(GenerationProcess.status == 'completed')
+    elif status_filter == 'processing':
+        query = query.filter(GenerationProcess.status == 'processing')
+    elif status_filter == 'failed':
+        query = query.filter(GenerationProcess.status == 'failed')
+    elif status_filter == 'completed-no-whatsapp':
+        query = query.filter(
+            GenerationProcess.status == 'completed',
+            GenerationProcess.whatsapp_notification_sent == False
+        )
+    
+    # Toplam kayıt sayısını al
+    total_count = query.count()
+    
+    # Sayfalama ile hikaye süreçlerini getir
+    processes = query.order_by(GenerationProcess.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
     
     # Her süreç için katılımcı bilgilerini de getir
-    for process in processes:
+    for process in processes.items:
         try:
             participant_ids = json.loads(process.participant_ids)
             process.participants = Participant.query.filter(Participant.id.in_(participant_ids)).all()
         except:
             process.participants = []
     
-    return render_template('admin_stories.html', processes=processes)
+    # İstatistikler için ayrı sorgular
+    stats = {
+        'all': GenerationProcess.query.count(),
+        'completed': GenerationProcess.query.filter(GenerationProcess.status == 'completed').count(),
+        'completed_no_whatsapp': GenerationProcess.query.filter(
+            GenerationProcess.status == 'completed',
+            GenerationProcess.whatsapp_notification_sent == False
+        ).count(),
+        'processing': GenerationProcess.query.filter(GenerationProcess.status == 'processing').count(),
+        'failed': GenerationProcess.query.filter(GenerationProcess.status == 'failed').count()
+    }
+    
+    return render_template('admin_stories.html', 
+                         processes=processes, 
+                         stats=stats,
+                         current_filter=status_filter,
+                         current_page=page,
+                         per_page=per_page)
 
 @app.route('/admin/normalize_phones')
 def admin_normalize_phones():
